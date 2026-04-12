@@ -10,6 +10,14 @@
 
 - **Article 1 の構成 (`projects/article-1/`) をコピーベースに開始する**: server.ts / src/main.tsx / tsconfig.json / vite.config.ts の雛形が流用できる。Recharts と GitHub API 関連のみ削除し、Anthropic SDK に差し替える
 - **Article 1 の ThemeContext / ColorPalette / useColors をそのまま流用**: Light / Dark 追従のパターンはすでに確立済み
+- **spec-001 を 1 イテレーションで完走できるパターン**: Article 1 が同じ spec を 5 コミットに分けたのに対し、Article 3 は雛形流用のおかげで package.json 初期化 + 依存 + server.ts + UI + vite.config + basic-host 検証までを 1 回で片付けられる。**2 番目以降のサブプロジェクトのコストが 1/5 になる** ことの実証
+- **依存バージョンの一貫性**: Article 1 と同じバージョンが解決された (TypeScript 6.0.2, React 19.2.5, Vite 8.0.8, Express 5.2.1, ext-apps 1.5.0, sdk 1.29.0)。Article 3 固有は `@anthropic-ai/sdk@0.88.0` と `react-markdown@10.1.0` のみ
+- **dotenv + `.env` + `.env.example` の組み合わせがスタンダード**: 秘密情報は `.env` (gitignore)、テンプレートは `.env.example` (committable) に分離。`import "dotenv/config"` 1 行で `process.env` に読み込まれる。Node 20.6+ の `--env-file=.env` native フラグも使えるが、tsx との互換性を考えると dotenv パッケージが最も portable
+- **Claude API モデル識別子 (2026-04 時点)**: `"claude-sonnet-4-6"` / `"claude-opus-4-6"` が現行 stable。haiku は `"claude-haiku-4-5-20251001"`。alias ではなく specific name で pin するのが本番向き
+- **Claude API の実測レイテンシ (sonnet vs opus)**: 同じ質問で sonnet = 1591ms、opus = 5911ms。opus は約 3.7 倍遅い。UI では Claude 側カラムに skeleton を出して体感を和らげるのが良い (特に opus 選択時)
+- **Anthropic SDK のエラー判別は HTTP status で十分**: SDK は `Anthropic.APIError` などのクラスを提供しているが、`instanceof` 判定より `err.status === 401 / 429` の方が portable。429 時の reset 時刻は `anthropic-ratelimit-requests-reset` または `anthropic-ratelimit-tokens-reset` ヘッダから取得
+- **chatgpt_answer を Claude に渡さない設計判断**: Claude には質問だけを投げ、`chatgpt_answer` は UI 側で並べるためにだけ structuredContent で搬送。これにより Claude は "ChatGPT の回答を見ない状態での独立した意見" を返し、**中立な side-by-side 比較** が成立する。Claude に chatgpt_answer を見せると "似たこと言ってる" とか "間違いを指摘する" 挙動になって公平性が崩れる
+- **Claude は MCP Apps について断片的な知識しかない (2026-04-12 時点)**: "MCP Apps の本質を 1 文で" と聞いたら、MCP 全般 (AIエージェントが外部ツールに接続する標準プロトコル) の説明が返ってきた。Claude の training cutoff に MCP Apps の SEP-1865 が含まれていないのか、記事的に面白い観察 — **複数 LLM の比較では "知識のムラ" が可視化される** という副次的な面白さ
 
 ## Gotchas
 

@@ -34,17 +34,17 @@ Feature: Article 3 プロジェクトの最小 MCP Apps 動作
 
 ## Implementation Steps
 
-- [ ] `projects/article-1/` を雛形に `projects/article-3/` を作成 (Recharts / GitHub API / src/github.ts は除く)
-- [ ] `package.json` を初期化し `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `@anthropic-ai/sdk`, `express`, `cors`, `react`, `react-dom`, `react-markdown` をインストール
-- [ ] 開発依存: `typescript`, `tsx`, `vite`, `vite-plugin-singlefile`, `@vitejs/plugin-react`, `@types/*` をインストール
-- [ ] `tsconfig.json` を Article 1 から流用 (変更不要のはず)
-- [ ] `server.ts` に最小 `ask_claude` (hardcode 文字列を返す) を `registerAppTool` で登録
-- [ ] `src/mcp-app.html` / `src/main.tsx` を Article 1 から最小構成にして流用、`AnalyzeRepoResult` 依存を削除
-- [ ] `vite.config.ts` を Article 1 から流用
-- [ ] `ALLOWED_HOSTS` env var 対応を server.ts に入れる (Article 1 から流用)
-- [ ] `npm run build` が通り `dist/mcp-app.html` が生成されることを確認
-- [ ] basic-host から `ask_claude` の hardcode 結果が描画されることをスクショで記録
-- [ ] Review (tsc 通過 + `/code-review`)
+- [x] `projects/article-1/` を雛形に `projects/article-3/` を作成 (Recharts / GitHub API / src/github.ts は除く) (2026-04-12)
+- [x] `package.json` を初期化し `@modelcontextprotocol/sdk@1.29.0`, `@modelcontextprotocol/ext-apps@1.5.0`, **`@anthropic-ai/sdk@0.88.0`**, `express@5.2.1`, `cors@2.8.6`, `react@19.2.5`, `react-dom@19.2.5`, **`react-markdown@10.1.0`** をインストール (2026-04-12)
+- [x] 開発依存: `typescript@6.0.2`, `tsx@4.21.0`, `vite@8.0.8`, `vite-plugin-singlefile@2.3.2`, `@vitejs/plugin-react@6.0.1`, `@types/*` をインストール (2026-04-12)
+- [x] `tsconfig.json` を Article 1 から流用 (変更なし、そのまま動作、2026-04-12)
+- [x] `server.ts` に最小 `ask_claude` を `registerAppTool` で登録 — zod schema で `{ question, chatgpt_answer?, model? }` を定義、handler は hardcode の placeholder 文字列 + `structuredContent` に `{ question, chatgpt_answer, claude_answer, model_used, latency_ms, placeholder: true }` を返す (2026-04-12)
+- [x] `src/mcp-app.html` / `src/main.tsx` を作成 — Article 1 の `AppRouter` / `StatusBadge` パターンを流用、`AskClaudeApp` で placeholder 結果を描画 (2026-04-12)
+- [x] `vite.config.ts` を Article 1 から流用 (変更なし、2026-04-12)
+- [x] `ALLOWED_HOSTS` env var 対応を server.ts に入れる (Article 1 の `createMcpExpressApp` + DNS rebinding 保護回避パターンを流用、2026-04-12)
+- [x] `npm run build` が通り `dist/mcp-app.html` が生成されることを確認 (313 KB / gzipped 93 KB、2026-04-12)
+- [x] basic-host から `ask_claude` の hardcode 結果が描画されることをスクショで記録 (`article-3-spec-001/01-ask-claude-placeholder.png`、console エラー 0、2026-04-12)
+- [x] Review (tsc EXIT=0 + chrome-devtools MCP 視覚検証、2026-04-12)
 
 ## Technical Notes
 

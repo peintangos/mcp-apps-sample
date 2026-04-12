@@ -45,17 +45,18 @@ Feature: Claude API 統合
 
 ## Implementation Steps
 
-- [ ] `src/claude.ts` に `askClaude(question, { model, chatgpt_answer }): Promise<Result<{ text, modelUsed, latencyMs }>>` を実装
-- [ ] `@anthropic-ai/sdk` の `Anthropic` クライアントを遅延初期化 (process.env.ANTHROPIC_API_KEY を読む)
-- [ ] モデル識別子のマッピング: `"sonnet"` → `"claude-sonnet-4-6"`, `"opus"` → `"claude-opus-4-6"` (2026-04 時点の最新 stable を pin)
-- [ ] `Result<T>` 型定義 (`{ ok: true; data } | { ok: false; error: AskClaudeError }`)
-- [ ] エラー型 `AskClaudeError = { code: "unauthenticated" | "rate_limited" | "network_error" | "invalid_response"; message; resetAt? }`
-- [ ] `ask_claude` ツールを zod スキーマで再定義: `{ question: z.string(), chatgpt_answer: z.string().optional(), model: z.enum(["sonnet", "opus"]).optional() }`
-- [ ] tool handler を `askClaude` 呼び出しに差し替え、`content` に要約テキスト、`structuredContent` に完全データを返す
-- [ ] 実 API スモークテスト: `ANTHROPIC_API_KEY` セット下で `npx tsx -e '...'` スクリプトで sonnet と opus の両方を確認
-- [ ] 失敗系スモーク: `ANTHROPIC_API_KEY` を空にして `unauthenticated` エラー、無効な API キーで 401 系確認
-- [ ] `knowledge.md` に rate limit の reset ヘッダ名や response shape を記録
-- [ ] Review (`pytest` 相当のテスト不要、スモークパス + `/code-review`)
+- [x] `src/claude.ts` に `askClaude(question, { model }): Promise<Result<{ text, modelUsed, latencyMs }>>` を実装 (2026-04-12)
+- [x] `@anthropic-ai/sdk@0.88.0` の `Anthropic` クライアントを遅延初期化 (`process.env.ANTHROPIC_API_KEY` を読む、キャッシュ済み、2026-04-12)
+- [x] モデル識別子のマッピング: `"sonnet"` → `"claude-sonnet-4-6"`, `"opus"` → `"claude-opus-4-6"` (2026-04-12)
+- [x] `Result<T>` 型定義 (`{ ok: true; data } | { ok: false; error: AskClaudeError }`) (2026-04-12)
+- [x] エラー型 `AskClaudeError = { code: "unauthenticated" | "rate_limited" | "network_error" | "invalid_response"; message; resetAt? }` を定義、401/403/429 を HTTP status で判別 (2026-04-12)
+- [x] `ask_claude` ツールの zod schema は spec-001 で既に `{ question, chatgpt_answer?, model? }` 形式 — 調整不要 (2026-04-12)
+- [x] tool handler を `askClaude` 呼び出しに差し替え、`content` に Claude の回答、`structuredContent` に `{ question, chatgpt_answer, claude_answer, model_used, latency_ms }` を返す (`placeholder` フラグ削除、2026-04-12)
+- [x] **実 API スモークテスト**: `askClaude("1+1 は?", { model: "sonnet" })` → `claude-sonnet-4-6`, 1591ms で "1+1は**2**です。" を取得、`askClaude("Rust と Go どちらを学ぶべきか", { model: "opus" })` → `claude-opus-4-6`, 5911ms で構造化回答を取得 (2026-04-12)
+- [x] **curl 経由のサーバー側 E2E**: `ask_claude` ツール呼び出しで実 Claude 応答が `structuredContent.claude_answer` に入ることを確認、`chatgpt_answer` も正しく保持 (2026-04-12)
+- [x] dotenv 経由で `.env` から `ANTHROPIC_API_KEY` を読み込む構成を採用 — `import "dotenv/config"` を server.ts の先頭に追加、`.env.example` と `.env` を作成 (`.env` は gitignore 済み) (2026-04-12)
+- [x] `knowledge.md` に Claude API 実呼び出しの実測値 (sonnet 1.5s / opus 6s、model ID、rate limit reset header 候補) を記録 (2026-04-12)
+- [x] Review (tsc EXIT=0、実 API 往復 3 種すべて成功、Article 1 の Result 型 pattern と一貫性、2026-04-12)
 
 ## Technical Notes
 

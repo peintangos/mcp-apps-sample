@@ -7,14 +7,14 @@ Mark completed tasks with `- [x]` instead of removing them.
 NOTE: Article 3 の実装は Article 1 公開後に着手する。Article 2 とは並行可。
 -->
 
-- [ ] spec-001: `projects/article-3/` に `package.json` を初期化し、`@modelcontextprotocol/sdk` / `@modelcontextprotocol/ext-apps` / `@anthropic-ai/sdk` / `express` / `react` / `react-markdown` / `vite` / `vite-plugin-singlefile` / `tsx` などを導入
-- [ ] spec-001: `server.ts` で MCP サーバーを初期化し、最小 `ask_claude` (hardcode した hello text を返す) と UI リソースを登録
-- [ ] spec-001: `src/mcp-app.html` + `src/main.tsx` + `tsconfig.json` + `vite.config.ts` を Article 1 構成から流用して作成
-- [ ] spec-001: `basic-host` で `ask_claude` の呼び出しと最小 UI 描画を確認、スクショ取得
-- [ ] spec-002: `src/claude.ts` に Anthropic SDK ラッパーを実装 (`askClaude(question, { model })` で Claude API を呼ぶ、`Result<T>` 型エラーハンドリング)
-- [ ] spec-002: `ask_claude` ツールの input schema を `{ question, chatgpt_answer?, model? }` に拡張し、zod スキーマ定義
-- [ ] spec-002: tool handler を `src/claude.ts` の呼び出しに差し替え、`structuredContent` に `{ question, chatgpt_answer, claude_answer, model_used, latency_ms }` を返す
-- [ ] spec-002: 実 API でスモークテスト (`ANTHROPIC_API_KEY` セット下で sonnet と opus の両方を確認)
+- [x] spec-001: `projects/article-3/` に `package.json` を初期化し、`@modelcontextprotocol/sdk` / `@modelcontextprotocol/ext-apps` / `@anthropic-ai/sdk` / `express` / `react` / `react-markdown` / `vite` / `vite-plugin-singlefile` / `tsx` などを導入 — 18 パッケージ、0 vulnerabilities (2026-04-12)
+- [x] spec-001: `server.ts` で MCP サーバーを初期化し、最小 `ask_claude` (hardcode placeholder + structuredContent) と UI リソースを登録 — Article 1 の stateless パターン + `ALLOWED_HOSTS` 対応済み (2026-04-12)
+- [x] spec-001: `src/mcp-app.html` + `src/main.tsx` + `tsconfig.json` + `vite.config.ts` を Article 1 構成から流用して作成 — `AskClaudeApp` + `StatusBadge` で placeholder 結果を描画 (2026-04-12)
+- [x] spec-001: `basic-host` で `ask_claude` の呼び出しと最小 UI 描画を確認、スクショ取得 — Connected + placeholder answer 描画まで視覚確認、`article-3-spec-001/01-ask-claude-placeholder.png` 保存 (2026-04-12)
+- [x] spec-002: `src/claude.ts` に Anthropic SDK ラッパーを実装 (`askClaude(question, { model })` で Claude API を呼ぶ、`Result<T>` 型エラーハンドリング) — 401/429 を HTTP status で分類、遅延初期化 + キャッシュ (2026-04-12)
+- [x] spec-002: `ask_claude` ツールの input schema は spec-001 で既に zod で定義済み、変更不要 (2026-04-12)
+- [x] spec-002: tool handler を `src/claude.ts` の呼び出しに差し替え、`structuredContent` に `{ question, chatgpt_answer, claude_answer, model_used, latency_ms }` を返す (2026-04-12)
+- [x] spec-002: 実 API でスモークテスト — sonnet (1591ms で "1+1は**2**です。") + opus (5911ms で Rust vs Go の構造化回答) 両方成功、curl 経由のサーバー E2E も成功 (2026-04-12)
 - [ ] spec-003: `src/components/AnswerColumn.tsx` と `src/components/ComparisonView.tsx` を作成 (2 カラム、Markdown 描画)
 - [ ] spec-003: `react-markdown` を導入し、コードブロックのシンタックスハイライトを追加
 - [ ] spec-003: `main.tsx` の AppRouter を更新し、structuredContent の shape で ComparisonView を描画
