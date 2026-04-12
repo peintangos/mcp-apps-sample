@@ -10,7 +10,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-001: `server.ts` で MCP サーバーを初期化し、`hello_time` ツールと UI リソースを `registerAppTool` / `registerAppResource` で登録 — `projects/article-1/server.ts` 完成、curl で initialize / tools/list / tools/call / resources/read を確認 (2026-04-12)
 - [x] spec-001: `src/mcp-app.html` と `src/main.tsx` で最小 UI を作成し `useApp()` でホスト接続 — `tsconfig.json` も合わせて作成、`tsc --noEmit` で型チェック通過 (2026-04-12)
 - [x] spec-001: `vite.config.ts` を `vite-plugin-singlefile` 構成にして `dist/mcp-app.html` を生成 — `npm run build` で 312KB の単一 HTML、サーバー経由 `resources/read` で React UI が返ることを確認 (2026-04-12)
-- [ ] spec-001: `basic-host` からサーバーを参照して `hello_time` の呼び出しと UI 表示を確認
+- [x] spec-001: `basic-host` からサーバーを参照して `hello_time` の呼び出しと UI 表示を確認 — ダブル iframe サンドボックスで React UI が描画され、`Connected` バッジと ISO timestamp 表示までを chrome-devtools MCP で視覚検証、スクショ 3 枚保存 (2026-04-12)
 - [ ] spec-002: GitHub REST/GraphQL クライアントを実装 (未認証アクセス、rate-limit ハンドリング含む)
 - [ ] spec-002: `analyze_repo` ツールを定義 (入力 `{ owner, repo }`、出力: 言語比率 / Star 数 / Contributor トップ 5)
 - [ ] spec-002: エラー応答 (404, rate-limit, network error) を UI で扱える形で構造化して返す

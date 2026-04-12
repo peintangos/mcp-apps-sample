@@ -12,6 +12,10 @@
 - **`useApp()` の "意図的な再実行抑止"**: フックは options 変更時に**意図的に再実行されない** (再接続ループを避けるため)。また App インスタンスは unmount 時に**自動 close されない** (React StrictMode の double-mount 対応)。これは普通の React フックの挙動と異なるので、説明文に明示的に書く価値がある
 - **`vite.config.ts` で `root: src` + 絶対パス指定**: Vite の `root` を `src` に切り替えると、build 出力が `dist/mcp-app.html` (root 直下) に出る。`outDir` と `rollupOptions.input` は **`path.resolve(__dirname, ...)` の絶対パス**にすると相対解決の混乱を避けられる
 - **`vite-plugin-singlefile` のビルド結果サイズ感**: hello_time UI (React 19 + ext-apps SDK + ステータスバッジ) で **312KB / gzipped 92KB**。React 一式と MCP Apps SDK が全部 inline されているにしては小さい。Recharts を入れる spec-003 で再評価 (上限 500KB gzipped 目標)
+- **basic-host は Bun を必要としないが、workspace install がハマる**: `ext-apps` リポの `package.json` にある `prepare` スクリプトが `generate-schemas.ts` を実行してコケる。`npm install -w examples/basic-host --ignore-scripts` で回避可能。`serve.ts` 自体は shebang が `#!/usr/bin/env npx tsx` で、Bun 非依存。`basic-host/package.json` の `serve: "bun --watch serve.ts"` を無視して `npx tsx serve.ts` を直接実行できる
+- **`basic-host` の build は `tsc --noEmit` で失敗する (`@types/cors` 不足)**: `npm run build` を直接実行すると TypeScript エラーになる。`npx cross-env INPUT=index.html npx vite build` + `INPUT=sandbox.html` 版を直接実行すれば vite ビルドだけ通せる。upstream の basic-host package.json のバグ扱い
+- **ダブル iframe サンドボックスの実装パターン**: basic-host は外側 iframe (`ui://` リソースのラッパー) と内側 iframe (我々の React UI) の両方を**同じオリジン (`localhost:8081`)** で動かしつつ、ホストページ (`localhost:8080`) とはオリジンを分けている。accessibility tree 上では "MCP-UI Proxy" (外) → "hello_time" (内) のネストとして見える
+- **`useApp()` の `Connected` 状態は postMessage ハンドシェイク完了のサイン**: basic-host 経由でロードすると、React 初期描画時は "Connecting…" でそのまま "Connected" に切り替わる。切り替わらなかった場合はホスト側の `ui/initialize` が来ていない証拠 (例: 親ページが MCP Apps プロトコルを話せない、iframe の origin 設定ミス)
 
 ## Integration Notes
 

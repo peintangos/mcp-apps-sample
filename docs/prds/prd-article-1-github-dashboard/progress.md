@@ -6,7 +6,7 @@ Use only these status values: `pending`, `in-progress`, `done`
 
 | Specification | Title | Status | Completed On | Notes |
 |---------------|-------|--------|--------------|-------|
-| spec-001-project-bootstrap | Project Bootstrap and Minimal MCP App | in-progress | | Vite ビルドまで完了 (`dist/mcp-app.html` 生成、サーバー経由で React UI 配信を確認)、残るは task 5 の basic-host 検証 (2026-04-12) |
+| spec-001-project-bootstrap | Project Bootstrap and Minimal MCP App | done | 2026-04-12 | basic-host から `hello_time` 呼び出しまで End-to-End 検証、スクショ 3 枚保存、console エラー 0 |
 | spec-002-github-analyze-tool | GitHub Analyze Repo Tool | pending | | |
 | spec-003-dashboard-ui | React Dashboard UI Resource | pending | | |
 | spec-004-claude-desktop-integration | Claude Desktop Integration and CSP | pending | | |
@@ -14,5 +14,5 @@ Use only these status values: `pending`, `in-progress`, `done`
 
 ## Summary
 
-- Done: 0/5
-- Current focus: spec-001-project-bootstrap
+- Done: 1/5
+- Current focus: spec-002-github-analyze-tool

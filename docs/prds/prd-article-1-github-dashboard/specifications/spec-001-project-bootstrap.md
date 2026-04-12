@@ -44,9 +44,9 @@ Feature: 最小 MCP App の往復
 - [x] `src/main.tsx` で `@modelcontextprotocol/ext-apps/react` の `useApp()` を使い、サーバー時刻を描画 (`HelloTimeApp` + `StatusBadge` で connecting/connected/error 状態を可視化、2026-04-12)
 - [x] `vite.config.ts` を `viteSingleFile()` プラグイン入りで作成し、単一 HTML を出力 (`dist/mcp-app.html` 312KB / gzip 92KB、2026-04-12)
 - [x] `registerAppResource` を配線して `dist/mcp-app.html` を `text/html;profile=mcp-app` として返す (Vite ビルド前はフォールバック HTML、2026-04-12)
-- [ ] `modelcontextprotocol/ext-apps` をクローンし、`basic-host` からこのサーバーに接続して往復を手動確認
-- [ ] 最小 UI の basic-host 上スクリーンショットを `docs/references/MCP Apps/screenshots/spec-001/` に保存
-- [ ] Review (TypeScript コンパイル + `/code-review`)
+- [x] `modelcontextprotocol/ext-apps` をクローンし、`basic-host` からこのサーバーに接続して往復を手動確認 (`~/work/ext-apps`, `SERVERS=[...]` で port 3001 を参照、2026-04-12)
+- [x] 最小 UI の basic-host 上スクリーンショットを `docs/references/MCP Apps/screenshots/spec-001/` に保存 (01-initial / 02-connected-loading / 03-tool-result の 3 枚、2026-04-12)
+- [x] Review (TypeScript コンパイル + Chrome DevTools MCP 視覚検証) — console エラー 0、警告 0、iframe 内に `Connected` バッジと ISO timestamp が描画される (2026-04-12)
 
 ## Technical Notes
 
