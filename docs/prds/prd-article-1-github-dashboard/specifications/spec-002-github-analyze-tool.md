@@ -33,9 +33,9 @@ Feature: GitHub リポジトリ分析ツール
 
 ## Implementation Steps
 
-- [ ] 薄い GitHub API クライアント (`src/github.ts`) を追加し、`fetchLanguages`, `fetchRepo`, `fetchContributors` を実装
-- [ ] `x-ratelimit-remaining` ヘッダを見て rate limit を検出
-- [ ] TypeScript 型 `AnalyzeRepoResult` を定義し、UI からも再利用できるよう export
+- [x] 薄い GitHub API クライアント (`src/github.ts`) を追加し、`fetchLanguages`, `fetchRepo`, `fetchContributors` を実装 (`Result<T>` 型で例外を throw せず返す、2026-04-12)
+- [x] `x-ratelimit-remaining` ヘッダを見て rate limit を検出 (`403/429 + remaining="0"` を `rate_limited` エラーにマップ、`x-ratelimit-reset` を ISO timestamp に変換、2026-04-12)
+- [x] TypeScript 型 `AnalyzeRepoResult` を定義し、UI からも再利用できるよう export (`src/github.ts` から `AnalyzeRepoResult` / `AnalyzeRepoError` / `Result<T>` を export、2026-04-12)
 - [ ] `analyze_repo` を `registerAppTool` で登録 (UI リソース URI は spec-001 と共通、UI はツール名で分岐)
 - [ ] GitHub エラーを `{ code, message }` 構造の payload にマップしてツール応答に乗せる
 - [ ] `analyze_repo` を `facebook/react` に対して呼び出して shape を検証するスモークテストを追加

@@ -11,7 +11,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-001: `src/mcp-app.html` と `src/main.tsx` で最小 UI を作成し `useApp()` でホスト接続 — `tsconfig.json` も合わせて作成、`tsc --noEmit` で型チェック通過 (2026-04-12)
 - [x] spec-001: `vite.config.ts` を `vite-plugin-singlefile` 構成にして `dist/mcp-app.html` を生成 — `npm run build` で 312KB の単一 HTML、サーバー経由 `resources/read` で React UI が返ることを確認 (2026-04-12)
 - [x] spec-001: `basic-host` からサーバーを参照して `hello_time` の呼び出しと UI 表示を確認 — ダブル iframe サンドボックスで React UI が描画され、`Connected` バッジと ISO timestamp 表示までを chrome-devtools MCP で視覚検証、スクショ 3 枚保存 (2026-04-12)
-- [ ] spec-002: GitHub REST/GraphQL クライアントを実装 (未認証アクセス、rate-limit ハンドリング含む)
+- [x] spec-002: GitHub REST/GraphQL クライアントを実装 (未認証アクセス、rate-limit ハンドリング含む) — `src/github.ts` に `fetchRepo` / `fetchLanguages` / `fetchContributors` + `Result<T>` 型を実装、`facebook/react` で実スモーク確認 (stars 244k, JS 68%, 5 contributors) + not_found エラーも検証済み (2026-04-12)
 - [ ] spec-002: `analyze_repo` ツールを定義 (入力 `{ owner, repo }`、出力: 言語比率 / Star 数 / Contributor トップ 5)
 - [ ] spec-002: エラー応答 (404, rate-limit, network error) を UI で扱える形で構造化して返す
 - [ ] spec-003: Recharts を導入し、言語比率ドーナツ・Star 数カード・Contributor リストのコンポーネントを作成

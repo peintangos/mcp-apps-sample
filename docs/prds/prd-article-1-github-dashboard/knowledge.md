@@ -16,6 +16,7 @@
 - **`basic-host` の build は `tsc --noEmit` で失敗する (`@types/cors` 不足)**: `npm run build` を直接実行すると TypeScript エラーになる。`npx cross-env INPUT=index.html npx vite build` + `INPUT=sandbox.html` 版を直接実行すれば vite ビルドだけ通せる。upstream の basic-host package.json のバグ扱い
 - **ダブル iframe サンドボックスの実装パターン**: basic-host は外側 iframe (`ui://` リソースのラッパー) と内側 iframe (我々の React UI) の両方を**同じオリジン (`localhost:8081`)** で動かしつつ、ホストページ (`localhost:8080`) とはオリジンを分けている。accessibility tree 上では "MCP-UI Proxy" (外) → "hello_time" (内) のネストとして見える
 - **`useApp()` の `Connected` 状態は postMessage ハンドシェイク完了のサイン**: basic-host 経由でロードすると、React 初期描画時は "Connecting…" でそのまま "Connected" に切り替わる。切り替わらなかった場合はホスト側の `ui/initialize` が来ていない証拠 (例: 親ページが MCP Apps プロトコルを話せない、iframe の origin 設定ミス)
+- **API クライアントは `Result<T>` 型 + ユニオンで返す**: `throw` ではなく `{ ok: true; data } | { ok: false; error }` を返すと、呼び出し側で try/catch を書かずに `if (result.ok)` で型が絞り込まれて分岐できる。MCP のツールハンドラから返す構造化エラーとも相性が良く、**UI → 構造化エラーカード描画** の流れが try/catch より自然
 
 ## Integration Notes
 
@@ -33,6 +34,9 @@
 - **stateless モードでシングルトン transport は使えない**: SDK の `StreamableHTTPServerTransport({ sessionIdGenerator: undefined })` を 1 つだけ作って使い回すと、2 回目以降の `tools/list` などで Express デフォルトの 500 (text/plain) が返る。エラーは `transport.onerror` にも try/catch にも乗らない (SDK の内部 state corruption)。**毎リクエスト新規生成 + `res.on("close")` で cleanup** が正解
 - **`registerAppTool` は `_meta.ui/resourceUri` 旧キーも自動で付ける**: `_meta.ui.resourceUri` を渡すと、SDK 内部で legacy key の `_meta["ui/resourceUri"]` も同時に populate される。古いホストとの後方互換のため。tools/list レスポンスを目視確認すると両方見える
 - **macOS には `timeout` コマンドがない**: スモークテストの Bash で `timeout N npx tsx server.ts` は失敗する (`command not found: timeout`)。`gtimeout` (coreutils) または `&` でバックグラウンド + `pkill` でクリーンアップが正解
+- **GitHub API の rate limit 判定は `x-ratelimit-remaining` ヘッダ + 403/429 両方見る**: 403 は `abuse detection` 時、429 は `too many requests` 時に発生する。`status === 403 || status === 429` かつ `remaining === "0"` なら rate_limited と判定。`x-ratelimit-reset` は UNIX epoch 秒なので `new Date(n * 1000).toISOString()` で ISO に変換する
+- **GitHub API 未認証は 60 req/h、token 付けると 5000 req/h**: 認証ヘッダは `Authorization: Bearer ${GITHUB_TOKEN}` (classic PAT の `token XXX` 形式も動くが `Bearer` が推奨)。`@modelcontextprotocol/sdk` と同じく **User-Agent ヘッダも設定が推奨**される (GitHub は UA なしリクエストに厳しい時がある)
+- **`facebook/react` を代表リポとしてスモークテスト**: 2026-04-12 時点で stars ~244k、言語 JavaScript 68.4% / TypeScript 28.7% / HTML 1.4%、トップ contributor は `sebmarkbage / zpao / gaearon`。記事の例として使える具体データ
 - **`tsconfig.json` の `moduleResolution: "Bundler"` で server + client を 1 ファイルに統合可能**: `server.ts` (Node ESM) と `src/main.tsx` (Vite クライアント) を同一 tsconfig で扱えた。`lib: ["ES2022", "DOM", "DOM.Iterable"]` で両方の型が解決される (server.ts で DOM 型が見えてしまう副作用はあるが、サンプルプロジェクトでは許容)
 - **`CallToolResult.content` 内のブロック判定は type narrowing が必要**: `params.content?.find((block): block is { type: "text"; text: string } => block.type === "text")` のように type predicate を使わないと、その後の `block.text` が型エラーになる。React 19 + TypeScript 6 の strict モードで顕在化
 
