@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { useColors } from "../main.js";
 
 const PALETTE = [
   "#3b82f6", // blue
@@ -14,9 +15,11 @@ const PALETTE = [
 type Language = { name: string; percentage: number };
 
 export function LanguageDonut({ languages }: { languages: Language[] }) {
+  const colors = useColors();
+
   if (languages.length === 0) {
     return (
-      <div style={{ padding: "1rem", color: "#94a3b8", textAlign: "center" }}>
+      <div style={{ padding: "1rem", color: colors.textMuted, textAlign: "center" }}>
         No language data
       </div>
     );
@@ -56,17 +59,20 @@ export function LanguageDonut({ languages }: { languages: Language[] }) {
           <Tooltip
             formatter={(value) => `${Number(value).toFixed(1)}%`}
             contentStyle={{
-              background: "#ffffff",
-              border: "1px solid #e2e8f0",
+              background: colors.tooltipBg,
+              border: `1px solid ${colors.tooltipBorder}`,
               borderRadius: "0.375rem",
               fontSize: "0.75rem",
+              color: colors.text,
             }}
+            itemStyle={{ color: colors.text }}
+            labelStyle={{ color: colors.textMuted }}
           />
           <Legend
             verticalAlign="bottom"
             height={40}
             iconType="circle"
-            wrapperStyle={{ fontSize: "0.75rem" }}
+            wrapperStyle={{ fontSize: "0.75rem", color: colors.text }}
           />
         </PieChart>
       </ResponsiveContainer>

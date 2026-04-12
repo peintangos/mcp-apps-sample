@@ -17,7 +17,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-003: Recharts を導入し、言語比率ドーナツ・Star 数カード・Contributor リストのコンポーネントを作成 — `recharts@3.8.1`、3 コンポーネント作成、8 色パレット (2026-04-12)
 - [x] spec-003: `ontoolresult` で受け取ったデータからダッシュボードを描画 — `structuredContent` の shape で分岐する `AppRouter`、facebook/react で実 API データ描画を視覚検証 (2026-04-12)
 - [x] spec-003: エラー / ローディング / 空状態の UI を追加 — `InfoCard` / `ErrorCard` / `StatusBadge`、CSP 修正も含めて完成、途中で発見した zod 検証エラーも表示できることを確認 (2026-04-12)
-- [ ] spec-003: Light/Dark テーマ追従を `useDocumentTheme` または `useHostStyles` で確認
+- [x] spec-003: Light/Dark テーマ追従を `useDocumentTheme` または `useHostStyles` で確認 — React state + `onhostcontextchanged` + ThemeContext で実装 (`useDocumentTheme` は DOM 属性監視で host context を拾えないため不採用)、basic-host で light/dark 視覚検証済み (2026-04-12)
 - [ ] spec-004: `_meta.ui.csp.connectDomains` に `https://api.github.com` を追加し、`basic-host` で接続エラーが出ないことを確認
 - [ ] spec-004: `cloudflared tunnel --url http://localhost:3001` で HTTPS 公開
 - [ ] spec-004: Claude Desktop の Connectors 設定に URL を追加し、"facebook/react を分析して" で動作確認

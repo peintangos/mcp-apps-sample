@@ -1,3 +1,5 @@
+import { useColors } from "../main.js";
+
 type Contributor = {
   login: string;
   avatarUrl: string;
@@ -5,9 +7,11 @@ type Contributor = {
 };
 
 export function ContributorList({ contributors }: { contributors: Contributor[] }) {
+  const colors = useColors();
+
   if (contributors.length === 0) {
     return (
-      <div style={{ padding: "1rem", color: "#94a3b8", textAlign: "center" }}>
+      <div style={{ padding: "1rem", color: colors.textMuted, textAlign: "center" }}>
         No contributors
       </div>
     );
@@ -23,7 +27,7 @@ export function ContributorList({ contributors }: { contributors: Contributor[] 
         flexDirection: "column",
       }}
     >
-      {contributors.map((c) => (
+      {contributors.map((c, index) => (
         <li
           key={c.login}
           style={{
@@ -31,7 +35,10 @@ export function ContributorList({ contributors }: { contributors: Contributor[] 
             alignItems: "center",
             gap: "0.75rem",
             padding: "0.625rem 0",
-            borderBottom: "1px solid #e2e8f0",
+            borderBottom:
+              index === contributors.length - 1
+                ? "none"
+                : `1px solid ${colors.border}`,
           }}
         >
           <img
@@ -46,7 +53,7 @@ export function ContributorList({ contributors }: { contributors: Contributor[] 
             <div
               style={{
                 fontWeight: 600,
-                color: "#0f172a",
+                color: colors.text,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -54,7 +61,7 @@ export function ContributorList({ contributors }: { contributors: Contributor[] 
             >
               {c.login}
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+            <div style={{ fontSize: "0.75rem", color: colors.textMuted }}>
               {c.contributions.toLocaleString()} contributions
             </div>
           </div>

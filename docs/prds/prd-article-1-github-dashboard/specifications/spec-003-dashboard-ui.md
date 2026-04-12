@@ -42,7 +42,7 @@ Feature: インタラクティブな GitHub ダッシュボード
 - [x] `src/components/StarCard.tsx` と `src/components/ContributorList.tsx` を作成 (2026-04-12)
 - [x] `useApp().ontoolresult` を React state setter につなぎ、描画を駆動する (`CallToolResult.structuredContent` の shape で `AnalyzeRepoView` vs 汎用テキスト表示に分岐、2026-04-12)
 - [x] トップレベル `App` コンポーネントにローディング / エラー / 空状態を追加 (`InfoCard` / `ErrorCard` / `StatusBadge` で connecting/connected/error/waiting/tool-error を網羅、2026-04-12)
-- [ ] `useDocumentTheme` または `useHostStyles` でホストテーマに追従
+- [x] `useDocumentTheme` または `useHostStyles` でホストテーマに追従 — React state + `app.onhostcontextchanged` 直接ハンドラで実装 (`useDocumentTheme` は DOM 属性監視なので host context 変更を拾えないため)、LIGHT_PALETTE / DARK_PALETTE を ThemeContext で配布、basic-host の moon ボタンで light/dark 両テーマを視覚検証済み (2026-04-12)
 - [x] ビルドされた `mcp-app.html` のサイズが妥当な予算 (gzipped 500 KB 未満目標) に収まることを確認 (実測 638KB / gzipped 189KB、目標比 38%、2026-04-12)
 - [x] basic-host で手動確認しスクリーンショットを取得 (`docs/references/MCP Apps/screenshots/spec-003/` に 04 枚、facebook/react で PieChart + Contributor avatars が描画されることを視覚検証、2026-04-12)
 - [x] Review (build check + `/code-review`) — tsc EXIT=0、console エラー 0、CSP 修正後に再検証済み (2026-04-12)

@@ -24,6 +24,10 @@
 - **`_meta.ui.csp` は `registerAppResource` の content item に載せる**: `_meta.ui.csp: { connectDomains, resourceDomains, frameDomains, baseUriDomains }` は resource の `contents[0]._meta.ui.csp` に配置する。basic-host はこれを `sandbox.html?csp=<url-encoded-json>` の query param に変換して iframe の CSP ヘッダを動的に構築する
 - **CSP `connectDomains` は fetch/XHR/WebSocket の許可ドメイン、`resourceDomains` は `<img>`/`<script>`/`<link>` の許可ドメイン**: 外部 API アクセスには `connectDomains`、外部画像/スクリプト/CSS 読み込みには `resourceDomains` を使う。GitHub API (`api.github.com`) は connect、GitHub avatar (`avatars.githubusercontent.com`) は resource
 - **`isError: true` + tool 側が検証エラーで止まった場合の UI**: zod 検証失敗は SDK レベルで拒否され、tool handler は呼ばれない。そのため `structuredContent.error` は空で、`content[0].text` に `"MCP error -32602: Input validation error: ..."` が入る。UI 側の ErrorCard はこの fallback パスもハンドリングする必要がある
+- **`useDocumentTheme` は MCP Apps のテーマ切替には向かない**: `useDocumentTheme` は `document.documentElement` の `data-theme` 属性や `class` を MutationObserver で監視するだけで、host からの `ui/host-context-changed` 通知を受けても DOM 属性を自動更新しない。**正解は React state + `app.onhostcontextchanged` + 初期値を `app.getHostContext()` から useEffect で取得**。ThemeContext で配布すれば子コンポーネントが楽にアクセスできる
+- **Recharts のチャート色はテーマ非依存のままで良い**: Pie のスライス色 (言語の category colors) は light/dark 両テーマで鮮やかな方が視認性が高い。theme-aware にすべきなのは **背景・テキスト・border・Tooltip/Legend の文字色** だけで、カテゴリ色はハードコードしたパレットを使い回す
+- **basic-host の state はブラウザ reload でリセットされる**: moon ボタンの light/dark state、tool の call 履歴などは localStorage 等に保持されていない。reload すると default light + empty tool 状態に戻る。スクリーンショット取得時に再現性を担保するには reload 直後にテーマを切り替えて撮影する流れが必要
+- **uid ベースの `take_screenshot(uid=...)` は cross-origin iframe 内要素に対してうまく動かない**: sandboxed iframe (`localhost:8081`) 内の要素 uid を指定すると、真っ白や真っ黒のスクショが返ることがある (Chrome DevTools の制約)。full-page screenshot (`fullPage: true`) で取得すれば正しく写る。記事のスクショ取得手順では `fullPage` 基本にする
 
 ## Integration Notes
 

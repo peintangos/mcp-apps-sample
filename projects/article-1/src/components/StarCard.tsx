@@ -1,10 +1,13 @@
+import { useColors } from "../main.js";
+
 export function StarCard({ stars }: { stars: number }) {
+  const colors = useColors();
   return (
     <div
       style={{
         padding: "1rem 1.25rem",
-        background: "#f8fafc",
-        border: "1px solid #e2e8f0",
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
         borderRadius: "0.75rem",
         display: "flex",
         flexDirection: "column",
@@ -14,7 +17,7 @@ export function StarCard({ stars }: { stars: number }) {
       <div
         style={{
           fontSize: "0.625rem",
-          color: "#64748b",
+          color: colors.textMuted,
           textTransform: "uppercase",
           letterSpacing: "0.08em",
           fontWeight: 600,
@@ -26,7 +29,7 @@ export function StarCard({ stars }: { stars: number }) {
         style={{
           fontSize: "1.875rem",
           fontWeight: 700,
-          color: "#0f172a",
+          color: colors.text,
           lineHeight: 1.1,
         }}
       >
