@@ -156,10 +156,11 @@ function createMcpServer(): McpServer {
 
   registerAppResource(
     server,
-    "hello_time UI",
+    "article-1 UI",
     UI_RESOURCE_URI,
     {
-      description: "Minimal hello_time UI that renders the server time.",
+      description:
+        "Article 1 UI resource. Renders hello_time and analyze_repo results.",
     },
     async () => ({
       contents: [
@@ -167,6 +168,14 @@ function createMcpServer(): McpServer {
           uri: UI_RESOURCE_URI,
           mimeType: RESOURCE_MIME_TYPE,
           text: await loadUiHtml(),
+          _meta: {
+            ui: {
+              csp: {
+                connectDomains: ["https://api.github.com"],
+                resourceDomains: ["https://avatars.githubusercontent.com"],
+              },
+            },
+          },
         },
       ],
     }),
