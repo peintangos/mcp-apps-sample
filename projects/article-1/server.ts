@@ -184,7 +184,18 @@ function createMcpServer(): McpServer {
   return server;
 }
 
-const app = createMcpExpressApp();
+// DNS rebinding 保護の設定:
+// - 既定 (localhost バインド) では SDK が自動で localhost のみ許可
+// - cloudflared トンネル経由で公開する時は ALLOWED_HOSTS にトンネルのホスト名を
+//   カンマ区切りで渡す (例: ALLOWED_HOSTS="abc.trycloudflare.com")
+const allowedHosts = process.env.ALLOWED_HOSTS
+  ? process.env.ALLOWED_HOSTS.split(",").map((h) => h.trim()).filter(Boolean)
+  : undefined;
+
+const app = createMcpExpressApp({
+  host: process.env.MCP_HOST ?? "127.0.0.1",
+  ...(allowedHosts ? { allowedHosts } : {}),
+});
 app.use(cors());
 app.use(express.json());
 

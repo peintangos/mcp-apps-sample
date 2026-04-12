@@ -28,6 +28,13 @@
 - **Recharts のチャート色はテーマ非依存のままで良い**: Pie のスライス色 (言語の category colors) は light/dark 両テーマで鮮やかな方が視認性が高い。theme-aware にすべきなのは **背景・テキスト・border・Tooltip/Legend の文字色** だけで、カテゴリ色はハードコードしたパレットを使い回す
 - **basic-host の state はブラウザ reload でリセットされる**: moon ボタンの light/dark state、tool の call 履歴などは localStorage 等に保持されていない。reload すると default light + empty tool 状態に戻る。スクリーンショット取得時に再現性を担保するには reload 直後にテーマを切り替えて撮影する流れが必要
 - **uid ベースの `take_screenshot(uid=...)` は cross-origin iframe 内要素に対してうまく動かない**: sandboxed iframe (`localhost:8081`) 内の要素 uid を指定すると、真っ白や真っ黒のスクショが返ることがある (Chrome DevTools の制約)。full-page screenshot (`fullPage: true`) で取得すれば正しく写る。記事のスクショ取得手順では `fullPage` 基本にする
+- **`createMcpExpressApp` の DNS rebinding 保護は cloudflared 経由で必ず詰まる**: SDK は localhost バインド時にデフォルトで DNS rebinding 保護を自動適用するため、`mechanisms-birds-terminal-blues.trycloudflare.com` のような外部ホスト名でリクエストすると `-32000 Invalid Host` が返る。対策は `createMcpExpressApp({ allowedHosts: [...] })` を渡すこと。記事では `ALLOWED_HOSTS` 環境変数を受け取る形にしてドキュメント化
+- **`cloudflared tunnel --url http://localhost:PORT` は無認証で使える quick tunnel**: 事前の Cloudflare アカウント登録不要で、即座に `https://*.trycloudflare.com` URL が発行される。デモには最適。ただし URL は起動ごとに変わるので、Claude Connector も毎回差し替えが必要。記事には "named tunnel は本番運用向け" と注記
+- **Claude.ai の MCP Apps iframe origin はサーバー URL のハッシュサブドメイン**: `computeAppDomainForClaude(mcpServerUrl)` で計算される `*.claudemcpcontent.com` 形式。実測例 `77f710975aee5a81842747dfa064944a.claudemcpcontent.com` は MCP サーバーの cloudflared URL から SHA-256 の先頭 32 文字が使われている。basic-host (`localhost:8081`) とは **完全に違う origin 形式** で、ホスト実装ごとに差がある
+- **Claude.ai の CSP 渡し方は URL クエリ (独自形式)**: basic-host は `sandbox.html?csp=<URL-encoded-json>` 方式だったが、Claude.ai は `?connect-src=...&resource-src=...` のように **キー別 URL クエリ** で渡す。さらに `resource-src` に **`https://assets.claude.ai` を Claude が自動追加** してくる (自分の UI アセットをロードさせるため)。ホスト間で CSP の渡し方がここまで違うのは記事ネタ
+- **Claude は `content[0].text` を読んで自然言語に統合する**: `analyze_repo` の `content: [{ type: "text", text: "facebook/react: 244,424 stars, top language JavaScript (68.4%)..." }]` を Claude が読み取り、「スター数は約24.4万と、GitHub全体でもトップクラスのリポジトリですね」というように要約してチャットに返す。これは MCP Apps の "LLM + UI が同じ結果を共有する" 設計の実証で、記事の核心的な章で使える
+- **Claude は `tool_meta.ui.resourceUri` の UI リソースを iframe に自動注入する**: 別途設定なしでダッシュボードが iframe として会話に埋め込まれる。開発者は UI 描画のためのフロント実装を書かない (ユーザーの Claude.ai が全部やる)。これが MCP Apps が `langchain-mcp-adapters` 等の通常の MCP クライアントと違う決定的な差分
+- **Claude.ai の Connectors 設定は `/settings/connectors` に Add custom connector ボタンがある**: Name と Remote MCP server URL の 2 つを入れるだけで追加可能 (OAuth は optional)。2026-04 時点ではヘッダに "Connectors have moved to Customize" 通知があり、新しい場所は `/customize/connectors`
 
 ## Integration Notes
 

@@ -33,16 +33,16 @@ Feature: Claude Desktop 上での End-to-End 検証
 
 ## Implementation Steps
 
-- [ ] `server.ts` のツール登録に `_meta.ui.csp.connectDomains: ["https://api.github.com"]` を追加
-- [ ] basic-host でブラウザコンソールに CSP 違反が出ないことを確認
-- [ ] Contributor のアバター表示など、追加で必要なドメイン (例: `avatars.githubusercontent.com`) を `resourceDomains` に追加
-- [ ] `cloudflared` を未インストールなら導入 (インストールコマンドを `knowledge.md` に記録)
-- [ ] トンネルを起動し生成された HTTPS URL をキャプチャ
-- [ ] URL を Claude Desktop Connectors に追加し、要求されたパーミッションを許可
-- [ ] Claude に "facebook/react を分析して" と送って End-to-End テストを実行
-- [ ] Claude Desktop でダッシュボードが描画されているスクリーンショットを取得し `docs/references/MCP Apps/screenshots/spec-004/` に保存
-- [ ] CSP 落とし穴とホスト固有挙動を `knowledge.md` に記録
-- [ ] Review (`/code-review`)
+- [x] `server.ts` のツール登録に `_meta.ui.csp.connectDomains: ["https://api.github.com"]` を追加 (spec-003 で前倒し実施、2026-04-12)
+- [x] basic-host でブラウザコンソールに CSP 違反が出ないことを確認 (spec-003 で実施、console 0 件、2026-04-12)
+- [x] Contributor のアバター表示など、追加で必要なドメイン (例: `avatars.githubusercontent.com`) を `resourceDomains` に追加 (spec-003 で前倒し実施、2026-04-12)
+- [x] `cloudflared` を未インストールなら導入 — `brew install cloudflared` (2026.3.0)、2026-04-12
+- [x] トンネルを起動し生成された HTTPS URL をキャプチャ — `cloudflared tunnel --url http://localhost:3001` で `mechanisms-birds-terminal-blues.trycloudflare.com` 発行、2026-04-12
+- [x] URL を Claude.ai Connectors に追加し、要求されたパーミッションを許可 (Claude Max で Claude.ai web の Settings > Connectors > Add custom connector に `https://mechanisms-birds-terminal-blues.trycloudflare.com/mcp` を追加、2026-04-12)
+- [x] Claude に "facebook/react を分析して" と送って End-to-End テストを実行 — Claude が `analyze_repo` を呼び出し、構造化データを読んで自然言語に統合、iframe でダッシュボードを描画 (2026-04-12)
+- [x] Claude ダッシュボード描画のスクリーンショットを取得し `docs/references/MCP Apps/screenshots/spec-004/` に保存 (5 枚、記事のヒーローショット候補 `05-claude-dashboard-top.png`、2026-04-12)
+- [x] CSP 落とし穴とホスト固有挙動を `knowledge.md` に記録 (DNS rebinding 保護 / Claude のハッシュサブドメイン / CSP 渡し方の host 差 等、2026-04-12)
+- [x] Review (`/code-review`) — server.ts の env 変数追加のみ、型チェック通過、Claude.ai での実動作視覚検証済み (2026-04-12)
 
 ## Technical Notes
 
