@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useColors } from "../main.js";
 
 export type AnswerColumnProps = {
@@ -71,6 +72,7 @@ export function AnswerColumn({
     body = (
       <div className="markdown-body">
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
           components={{
             p: ({ children }) => (
               <p style={{ margin: "0.5rem 0", lineHeight: 1.65 }}>{children}</p>
@@ -183,6 +185,65 @@ export function AnswerColumn({
                 {children}
               </a>
             ),
+            table: ({ children }) => (
+              <div
+                style={{
+                  overflowX: "auto",
+                  margin: "0.75rem 0",
+                }}
+              >
+                <table
+                  style={{
+                    borderCollapse: "collapse",
+                    width: "100%",
+                    fontSize: "0.75rem",
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  {children}
+                </table>
+              </div>
+            ),
+            thead: ({ children }) => (
+              <thead
+                style={{
+                  background: colors.surfaceAlt,
+                  borderBottom: `1px solid ${colors.border}`,
+                }}
+              >
+                {children}
+              </thead>
+            ),
+            tr: ({ children }) => (
+              <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                {children}
+              </tr>
+            ),
+            th: ({ children }) => (
+              <th
+                style={{
+                  padding: "0.375rem 0.625rem",
+                  textAlign: "left",
+                  fontWeight: 700,
+                  color: colors.text,
+                  borderRight: `1px solid ${colors.border}`,
+                }}
+              >
+                {children}
+              </th>
+            ),
+            td: ({ children }) => (
+              <td
+                style={{
+                  padding: "0.375rem 0.625rem",
+                  color: colors.text,
+                  borderRight: `1px solid ${colors.border}`,
+                  verticalAlign: "top",
+                }}
+              >
+                {children}
+              </td>
+            ),
           }}
         >
           {content}
@@ -210,11 +271,13 @@ export function AnswerColumn({
         padding: "1rem",
         background: colors.surface,
         border: `1px solid ${colors.border}`,
+        borderLeft: `5px solid ${labelColor}`,
         borderRadius: "0.75rem",
         display: "flex",
         flexDirection: "column",
         gap: "0.5rem",
         minWidth: 0,
+        boxShadow: `0 2px 8px ${labelColor}22`,
       }}
     >
       <header
@@ -222,7 +285,7 @@ export function AnswerColumn({
           display: "flex",
           alignItems: "baseline",
           justifyContent: "space-between",
-          borderBottom: `1px solid ${colors.border}`,
+          borderBottom: `2px solid ${labelColor}`,
           paddingBottom: "0.5rem",
           gap: "0.5rem",
         }}
@@ -230,9 +293,10 @@ export function AnswerColumn({
         <h2
           style={{
             margin: 0,
-            fontSize: "0.9375rem",
-            fontWeight: 700,
+            fontSize: "1.125rem",
+            fontWeight: 800,
             color: labelColor,
+            letterSpacing: "-0.01em",
           }}
         >
           {label}

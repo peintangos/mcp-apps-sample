@@ -1,377 +1,199 @@
 ---
-title: "MCP Apps で Claude の中に自作 GitHub ダッシュボードを生やしてみた"
-emoji: "🧩"
+title: "MCP AppsでChatGPT の中に Claude の回答を生やす"
+emoji: "🤝"
 type: "tech"
-topics: ["mcp", "claude", "react", "typescript", "vite"]
+topics: ["mcp", "chatgpt", "claude", "react", "typescript"]
 published: false
 ---
 
-チャットの中にグラフが、地図が、3D が生える時代になりました。
+どうも！peitangosです。
+MCP Appsで少し遊んでみました。意外と面白かったので、記事にしました。
 
-![Claude.ai の会話内で描画される自作 GitHub ダッシュボード](/images/mcp-apps-github-dashboard/01-hero-claude.png)
+今回やったことを一言で言うと、ChatGPT の会話の中に Claude の回答をカードとして生やすやつです。
+つまり ChatGPT に何かを質問すると、ChatGPT 自身の回答に加えて「Claudeの答え」というオレンジのカードが同じ会話内にもう1枚ぽこっと出てきます。ライバルベンダー同士の LLM を 1 つの UI で同居させる構造ですね。
 
-このスクショは、Claude.ai で「facebook/react を分析して」と送った結果です。Claude が MCP ツールを呼び出し、返ってきた結果と一緒に **React で自作したダッシュボード**が iframe で会話内にそのまま生えています。Star 数、言語比率のドーナツチャート、Top Contributor のアバターまで、ぜんぶ自作の React コンポーネントです。
+![ChatGPT の中で Claude の回答カードが描画されている様子](/images/mcp-apps-claude-second-opinion/chatgpt-from-claude.gif)
 
-これを可能にしているのが **MCP Apps** という仕組みで、2026 年 1 月に MCP (Model Context Protocol) の公式拡張として Stable 化されました。この記事では MCP Apps の仕組みをさらっと説明したあと、`hello_time` を返す最小サーバーから始めて、上のダッシュボードが Claude の中で動くまでを実際に手を動かして作っていきます。
+## はじめに
 
-ハマったポイントもかなり具体的に書くので、同じ罠を踏まずに済むはずです。
+2026年1月26日、MCP 仕様に MCP Apps (別名 SEP-1865, `io.modelcontextprotocol/ui`) という拡張が初めて取り込まれました。
 
-## MCP Apps ってなに
+MCP 自体をざっくりおさらいしておくと、LLM ホスト (Claude Desktop, ChatGPT, Cursor, など) と外部ツールを繋ぐ共通プロトコルです。いわば「AI 版の LSP」みたいな立ち位置で、サーバー側が tool を 1 つ登録すれば、対応ホストならどこからでもそのツールを呼べる、というやつですね。
 
-一言で説明すると、**MCP サーバーがプレーンテキストの代わりに HTML の UI を返せるようになる**拡張です。仕様名は SEP-1865、拡張 ID は `io.modelcontextprotocol/ui`、2026 年 1 月 26 日に Stable 化されました。
+で、MCP Apps というのはその上に乗る UI 拡張で、一言で言うと:
 
-MCP 自体を知らない人向けに補足すると、MCP は LLM ホスト (Claude や ChatGPT) と外部ツール・データを JSON-RPC で繋ぐ標準プロトコルです。MCP サーバーは「ツール」を公開し、LLM がそれを呼びます。従来のツールはテキスト (`"今日の気温は 18 度です"`) しか返せませんでしたが、MCP Apps が加わったことでツールが **HTML + JavaScript のリッチな UI** を返せるようになりました。
+> MCP サーバーが HTML (React でビルドしたやつ) を返せるようにして、ホスト側は iframe でそれを描画する
 
-## なにがうれしいのか
+という仕組みです。ツール呼び出しの結果がテキストや JSON だけじゃなくて、リッチな UI コンポーネントになります。
+しかも仕様上は「Write Once, Run Anywhere」を謳っていて、同じ MCP サーバーの HTML が Claude Desktop でも ChatGPT でも Cursor でも (対応していれば) そのまま動くことになっています。
 
-これまで LLM の出力は基本テキスト 1 本でした。凝った UI を見せたければ自前のフロントエンドを作るしかなく、しかもそのフロントは Claude や ChatGPT ごとに別実装が必要でした。OpenAI Apps SDK も 2025 年末までは ChatGPT 専用で、移植性がありませんでした。
+今回はこの「ホストを越境する UI」という特性をフル活用して、ChatGPT の中で Claude の回答カードを描画させてみます。
 
-MCP Apps の価値提案は **「Write Once, Run Anywhere」** です。1 本の MCP サーバーを書くだけで、Claude / ChatGPT / VS Code Copilot / M365 Copilot / Goose のどこでも**同じ UI が動きます**。
+## その機能が解こうとしている課題
 
-| 従来 | MCP Apps |
-|---|---|
-| ツールはテキスト/JSON を返す | ツールはテキスト + HTML UI を返す |
-| ホストごとに UI を別実装 | 1 本の実装で全ホストに対応 |
-| OpenAI Apps SDK は ChatGPT 専用 | MCP 公式拡張として標準化 |
+そもそもなんでこんな拡張が入ったのかという話です。
 
-## 技術的な仕組み
+MCP は登場してしばらくの間、ツール呼び出しの結果はテキスト or JSON しか返せませんでした。
+これだと例えば「GitHub のリポジトリ一覧をリッチな表で出したい」とか「地図を埋めたい」とか「グラフを出したい」とかをやろうとしたとき、ホスト側 (Claude Desktop や ChatGPT) がそれぞれ独自にレンダラーを書く必要がありました。
 
-MCP Apps の核は 2 つの要素だけです。
+- ホスト A: Markdown テーブルとして描画
+- ホスト B: 独自の UI コンポーネントでカードとして描画
+- ホスト C: 何もしない (生 JSON が表示される)
 
-1. **UI リソース**: `ui://` スキームで配信される HTML (MIME は `text/html;profile=mcp-app`)
-2. **Tool-UI リンク**: ツール定義の `_meta.ui.resourceUri` がその UI リソースを指す
+これ、ツール開発者から見ると「どのホストでどう見えるか」が完全に運任せでした。
+MCP Apps はこの課題をシンプルに解決していて、ツール側が HTML を同梱すれば、どのホストも同じ見た目で iframe 描画する、という約束にしました。
 
-呼び出しフローは以下の通りです。
+つまりレンダリングの責任がホストからツール側に移った、というのが本質です。
+ツール開発者は自分が期待する見た目を自分で保証できるようになり、代わりにホストは「安全に iframe を出す」ことだけに集中すればよくなりました。
 
+この「ホストを越境して同じ UI が動く」という性質があるからこそ、今回のネタ — ChatGPT の会話の中で Claude の回答カードを描画する — が成立しています。Claude Desktop 向けに書いたコードとまったく同じ `mcp-app.html` が、ChatGPT の iframe にもそのまま描画されます。
+
+## なにをしたか
+
+ここからが本題です。
+
+### できあがったもの
+
+完成したのはこういう感じの MCP App です。
+
+1. ChatGPT で「〇〇について教えて」と聞く
+2. ChatGPT は普通に自分の回答をテキストで返す
+3. 同時に `ask_claude` ツールを自動で呼ぶ
+4. MCP サーバー (自前 Node.js) が Anthropic API で Claude を叩く
+5. Claude の回答を structuredContent として返す
+6. ChatGPT の会話内にオレンジのカードとして Claude の回答が生える
+
+冷静に考えると Custom Connector が出た時点で、ChatGPT からバックエンド越しに Claude に問い合わせること自体はできました。ただ「UI として会話内に Claude の回答カードを描画する」のは MCP Apps が来るまで無理だったので、体験としては結構別物です。
+
+### 全体のアーキテクチャ
+
+最終的にクラウドにホストした後の全体像はこんな感じです。
+
+```mermaid
+flowchart LR
+    U((👤 User))
+    G[💬 ChatGPT]
+
+    subgraph Fly["☁️ Fly.io · Tokyo region"]
+      direction TB
+      subgraph Proc["1 つの Node.js プロセス"]
+        direction TB
+        A["🔐 OAuth 2.1 Authz Server<br>/.well-known/*・/register<br>/authorize・/token"]
+        M["📡 MCP Resource Server<br>POST /mcp"]
+        T["🛠 ask_claude tool"]
+        H["🎨 mcp-app.html<br>(Vite + React SPA)"]
+      end
+    end
+
+    C[🤖 Anthropic API<br>Claude Sonnet 4.6]
+    K[["💰 Anthropic spend cap<br>$10/月 上限"]]
+
+    U --> G
+    G -->|"認可フロー (OAuth 2.1)"| A
+    G ==>|"Bearer 付き MCP リクエスト"| M
+    M --> T
+    M --> H
+    T -->|"HTTPS"| C
+    C -.->|"課金"| K
 ```
-1. LLM がツールを呼ぶ
-2. ホストが _meta.ui.resourceUri を読んで ui:// リソースを取得
-3. ホストがサンドボックス化された iframe に HTML をロード
-4. iframe 内の UI が postMessage 上の JSON-RPC でホストと接続
-5. ホストがツール結果を ui/notifications/tool-result で iframe に配信
-6. UI が結果を描画
-```
 
-iframe 内の UI からホストへの通信も同じ `postMessage + JSON-RPC` で、ここだけ押さえておけば大体わかります。
+登場人物は 4 つだけです。
 
-## まず公式サンプルを触る
+1. ChatGPT — ユーザーが質問を打つ場所。MCP クライアントとしてサーバーを叩く
+2. MCP サーバー (自前 Node.js, Fly.io にデプロイ) — ask_claude ツール / mcp-app.html リソース / OAuth 2.1 Authorization Server の 3 役を 1 プロセスで兼ねている
+3. Anthropic API — Claude 本体。MCP サーバーから HTTPS で叩く
+4. Anthropic spend cap — 認証が万一破られても月額いくらで絶対に頭打ちになる安全装置
 
-手を動かす前に公式サンプルを眺めると全体像が掴めます。`modelcontextprotocol/ext-apps` リポを clone して、`basic-host` (公式リファレンスホスト) を起動しましょう。
+同じ Node.js プロセスが Authorization Server + Resource Server + ツール実行 + UI 配信の 4 つを同時に受け持っていて、ここが MCP Apps 独特の構造です。UI (HTML) の配信まで MCP サーバー側が持つので、普通のフロントエンド + バックエンドの分離とは少し感覚が違います。その代わり、ホストを越境して (ChatGPT でも Claude Desktop でも) まったく同じ UI が動きます。
+
+### 実装は 4 パーツだけ
+
+中身もシンプルで、大きく分けて以下の 4 ファイルしかありません。
+
+- `server.ts` — MCP サーバー本体。ask_claude ツール、mcp-app.html リソース、OAuth ルートの mount を行う
+- `src/claude.ts` — Anthropic SDK の薄いラッパー。質問文字列を受け取って Claude の回答を返すだけ
+- `src/main.tsx` — React 製 UI。ツール呼び出し結果を受け取ってオレンジのカードを描画するだけ
+- `src/oauth.ts` — 自前の最小 OAuth 2.1 Authorization Server。後述する通り割り切って書いたら 300 行ちょっとに収まった
+
+コード全体はリポジトリ ([peintangos/mcp-apps-sample](https://github.com/peintangos/mcp-apps-sample) の `projects/article-3/`) にあるので、興味がある方はそちらを覗いてみてください。この記事では細かい実装より「サーバーを外に置く」周りの話を掘り下げたいと思います。
+
+## MCP サーバーを外に置くときの注意点
+
+### cloudflared と「ちゃんとしたホスティング」の使い分け
+
+最初は手軽さ重視で [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) の quick tunnel で繋ぎました。
 
 ```bash
-git clone https://github.com/modelcontextprotocol/ext-apps.git
-cd ext-apps
-npm install -w examples/basic-host --ignore-scripts
-cd examples/basic-host
-npx cross-env INPUT=index.html npx vite build
-npx cross-env INPUT=sandbox.html npx vite build
-SERVERS='["http://localhost:3001/mcp"]' npx tsx serve.ts
-```
-
-`--ignore-scripts` を付けているのは、ext-apps の `prepare` スクリプトが `ts-to-zod` を要求してコケるのを避けるためです。このリポは Bun ベースの workspace なので、素の npm で部分インストールするにはコツが要ります。**正直ここで結構ハマりました**。serve.ts 自体は `#!/usr/bin/env npx tsx` の shebang が付いていて Bun 非依存だったので、公式の `npm start` を無視して `npx tsx serve.ts` を直接叩けば動きます。
-
-basic-host で自作サーバー (次の章で作る) に接続できれば、こんな感じで最小 UI が描画されます。
-
-![basic-host で hello_time が描画されている様子](/images/mcp-apps-github-dashboard/02-basic-host-hello.png)
-
-## 自分で作る: GitHub リポジトリダッシュボード
-
-題材は **「`analyze_repo` ツールを呼ぶと、Star 数・言語比率・Top Contributor が React ダッシュボードとして会話内に生える」** です。
-
-プロジェクト構成はシンプルにこんな感じ:
-
-```
-projects/article-1/
-├── server.ts           # MCP サーバー (Streamable HTTP)
-├── src/
-│   ├── mcp-app.html    # Vite エントリ
-│   ├── main.tsx        # React エントリ (useApp 経由)
-│   ├── github.ts       # GitHub API クライアント
-│   └── components/     # LanguageDonut / StarCard / ContributorList
-├── vite.config.ts      # vite-plugin-singlefile
-├── package.json
-└── tsconfig.json
-```
-
-技術選定はこう決めました。
-
-| パッケージ | バージョン | 役割 |
-|---|---|---|
-| `@modelcontextprotocol/sdk` | `^1.29.0` | MCP サーバー基盤 |
-| **`@modelcontextprotocol/ext-apps`** | **`^1.5.0`** | **MCP Apps SDK (サーバー + React)** |
-| `express` | `^5.2.1` | HTTP トランスポート |
-| **`react` + `recharts`** | **`^19.2.5` + `^3.8.1`** | **UI + ドーナツチャート** |
-| **`vite` + `vite-plugin-singlefile`** | **`^8.0.8` + `^2.3.2`** | **単一 HTML バンドル** |
-| `tsx` | `^4.21.0` | TypeScript サーバー直接起動 |
-
-2026 年 4 月時点の最新メジャーが揃った構成になっていて、React 19 + Vite 8 + Express 5 + TypeScript 6 という、少し前の記事だと全部違うバージョンだったはずのものが軒並み上がっています。書いてる側としても「こんなに上がってたのか」とちょっと驚きました。
-
-### サーバー側 (server.ts の核)
-
-`server.ts` では **stateless Streamable HTTP のリクエストごとに `McpServer` + `StreamableHTTPServerTransport` を生成** します。シングルトンで共有するとステート汚染で 500 が返るので注意してください。ここで半日溶かしました…。
-
-```typescript
-// server.ts (抜粋)
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
-import {
-  registerAppTool,
-  registerAppResource,
-  RESOURCE_MIME_TYPE,
-} from "@modelcontextprotocol/ext-apps/server";
-import { z } from "zod";
-
-function createMcpServer(): McpServer {
-  const server = new McpServer({
-    name: "article-1-github-dashboard",
-    version: "0.0.1",
-  });
-
-  registerAppTool(
-    server,
-    "analyze_repo",
-    {
-      title: "Analyze GitHub Repository",
-      description: "Fetches a GitHub repository's star count, languages, and top contributors.",
-      inputSchema: {
-        owner: z.string().describe("Repository owner"),
-        repo: z.string().describe("Repository name"),
-      },
-      _meta: { ui: { resourceUri: "ui://github-dashboard/mcp-app.html" } },
-    },
-    async ({ owner, repo }) => {
-      const [repoRes, langsRes, contribsRes] = await Promise.all([
-        fetchRepo(owner, repo),
-        fetchLanguages(owner, repo),
-        fetchContributors(owner, repo),
-      ]);
-      // ...エラーハンドリングと整形省略...
-      return {
-        content: [{ type: "text", text: `${owner}/${repo}: ${stars} stars, ...` }],
-        structuredContent: result, // ← UI が読む構造化データ
-      };
-    },
-  );
-
-  registerAppResource(
-    server,
-    "Article 1 UI",
-    "ui://github-dashboard/mcp-app.html",
-    { description: "GitHub dashboard UI" },
-    async () => ({
-      contents: [{
-        uri: "ui://github-dashboard/mcp-app.html",
-        mimeType: RESOURCE_MIME_TYPE,
-        text: await readFile("dist/mcp-app.html", "utf-8"),
-        _meta: {
-          ui: {
-            csp: {
-              connectDomains: ["https://api.github.com"],
-              resourceDomains: ["https://avatars.githubusercontent.com"],
-            },
-          },
-        },
-      }],
-    }),
-  );
-
-  return server;
-}
-```
-
-ポイントは 2 つあります。
-
-1 つ目は、ツール結果に **`content` と `structuredContent` を両方返している** こと。`content` には人間可読なテキスト (`"facebook/react: 244,424 stars, top language JavaScript (68.4%)..."`) を、`structuredContent` にはデータ構造をそのまま詰めています。**LLM は content を読んで会話を続け、UI は structuredContent を読んでチャートを描画する**という二刀流の設計で、これが MCP Apps の本質的な面白さです。
-
-2 つ目は `_meta.ui.csp` の CSP 宣言です。これがないと iframe が GitHub API を叩こうとした瞬間にブラウザが止めます。`connectDomains` は fetch/XHR 先の許可、`resourceDomains` は `<img>` / `<script>` / `<link>` の許可先で、**使い分けを知らないとアバター画像が壊れて泣きます**。これは後述のハマりどころ 2 で触れます。
-
-### UI 側 (main.tsx の核)
-
-UI は React + `useApp()` フックで書きます。このフックが iframe ↔ ホスト間の postMessage ハンドシェイクを全部吸収してくれます。
-
-```tsx
-// src/main.tsx (抜粋)
-import { useApp } from "@modelcontextprotocol/ext-apps/react";
-import { createContext, useContext, useEffect, useState } from "react";
-
-function AppRouter() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [toolResult, setToolResult] = useState<CallToolResult | null>(null);
-
-  const { app, isConnected, error } = useApp({
-    appInfo: { name: "article-1-github-dashboard", version: "0.0.1" },
-    capabilities: {},
-    onAppCreated: (app) => {
-      app.ontoolresult = (params) => setToolResult(params);
-      app.onhostcontextchanged = (ctx) => {
-        if (ctx.theme === "light" || ctx.theme === "dark") setTheme(ctx.theme);
-      };
-    },
-  });
-
-  useEffect(() => {
-    if (app && isConnected) {
-      const ctx = app.getHostContext();
-      if (ctx?.theme === "light" || ctx?.theme === "dark") setTheme(ctx.theme);
-    }
-  }, [app, isConnected]);
-
-  // 以下、toolResult.structuredContent の shape で分岐してダッシュボード描画
-}
-```
-
-`useApp()` の挙動で一つ面白いのがあって、**このフックは options 変更時に意図的に再実行されない** し、**App インスタンスは unmount 時に自動 close されない**。普通の React フックの慣例を破っていて、初見だと「バグ？」と思うんですが、理由を読むとなるほどってなります。
-
-- **再実行しない**のは、iframe ↔ ホストの再ハンドシェイクが無限ループになるのを防ぐため
-- **close しない**のは、React StrictMode の double-mount 対応のため
-
-**React の慣例より MCP プロトコルの整合性を優先**した設計で、これは普通のフックを書くときに意識する制約とは別物です。この設計判断を読んだ時に「MCP Apps は React 用に作られたライブラリじゃなくて、プロトコルの制約が先にある」と腑に落ちました。
-
-basic-host で接続するとこんな感じで描画されます。
-
-![basic-host で描画される GitHub ダッシュボード](/images/mcp-apps-github-dashboard/03-dashboard-closeup.png)
-
-## ハマりどころ 3 連発
-
-ここからが本題です。MCP Apps の仕組み自体はシンプルなんですが、セキュリティ関連で詰まるポイントがいくつかありました。
-
-### 1. Recharts の `ResponsiveContainer` でチャートが消える
-
-最初、Languages のドーナツチャートがどうしても描画されませんでした。親 div に height を付けているのに、空の枠だけ表示される。
-
-```tsx
-// ❌ これだとチャートが width(-1) height(-1) で消える
-<div style={{ width: "100%", height: 260 }}>
-  <ResponsiveContainer>
-    <PieChart>...</PieChart>
-  </ResponsiveContainer>
-</div>
-```
-
-正解は **`ResponsiveContainer` 自身にサイズを渡す** ことでした。親 div で囲むと、初期測定のタイミングでサイズが 0 とみなされて警告が出ます。
-
-```tsx
-// ✅
-<ResponsiveContainer width="100%" height={260}>
-  <PieChart>...</PieChart>
-</ResponsiveContainer>
-```
-
-Recharts 初心者が 100% 踏む罠っぽいです。
-
-### 2. CSP の `img-src` で contributor アバターがブロックされる
-
-basic-host でダッシュボードを開いたら、チャートは描画されたのに contributor のアバターが全部壊れ画像になっていました。DevTools Console 見たらこれ:
-
-```
-Loading the image 'https://avatars.githubusercontent.com/u/63648?v=4'
-violates the following Content Security Policy directive:
-"img-src 'self' data: blob:". The action has been blocked.
-```
-
-MCP Apps のホストは、**デフォルトで外部画像をブロック**します。これを通すには `_meta.ui.csp.resourceDomains` で明示的に許可が必要です。
-
-```typescript
-_meta: {
-  ui: {
-    csp: {
-      connectDomains: ["https://api.github.com"],           // fetch/XHR の許可先
-      resourceDomains: ["https://avatars.githubusercontent.com"], // img/script/style の許可先
-    },
-  },
-}
-```
-
-`connectDomains` と `resourceDomains` の使い分けを理解していないと、「API は通るのに画像が来ない」という謎現象が起きます。**connectDomains は fetch 系、resourceDomains は `<img>` や `<script>` 系** と覚えておけば迷いません。
-
-### 3. `createMcpExpressApp` の DNS rebinding 保護が cloudflared で詰まる
-
-**これが一番ハマりました**。ローカル (`localhost:3001`) では動くのに、cloudflared トンネル経由で Claude に繋いだ瞬間にこれが返ってきます:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "error": {
-    "code": -32000,
-    "message": "Invalid Host: mechanisms-birds-terminal-blues.trycloudflare.com"
-  },
-  "id": null
-}
-```
-
-MCP SDK の `createMcpExpressApp()` はデフォルトで **localhost バインド時に DNS rebinding 保護**を自動で有効化します。これはブラウザからローカルサーバーを不正に叩かれるのを防ぐためのセキュリティ機能ですが、**cloudflared 経由で外部公開すると Host ヘッダが `*.trycloudflare.com` になるため正当なリクエストまで弾かれる**わけです。
-
-対策は `allowedHosts` オプションで許可ドメインを明示することです。私は環境変数から受けるようにしました。
-
-```typescript
-// server.ts
-const allowedHosts = process.env.ALLOWED_HOSTS
-  ? process.env.ALLOWED_HOSTS.split(",").map((h) => h.trim()).filter(Boolean)
-  : undefined;
-
-const app = createMcpExpressApp({
-  host: process.env.MCP_HOST ?? "127.0.0.1",
-  ...(allowedHosts ? { allowedHosts } : {}),
-});
-```
-
-起動時に `ALLOWED_HOSTS="mechanisms-birds-terminal-blues.trycloudflare.com" npx tsx server.ts` のように渡せば解決。**セキュリティのための中間層が開発体験を削る典型例**で、知らないと 1 時間は確実にコケます。記事のハマりどころとしてはこれが一番価値あると思っています。
-
-## Claude.ai で動かす
-
-ここまで来たら後は接続するだけです。サーバーを立てて、cloudflared でトンネルを開き、Claude.ai に Custom Connector として登録します。
-
-```bash
-# Terminal 1: MCP サーバー
-cd projects/article-1
-npx tsx server.ts  # 最初はこれで起動、トンネル URL が出たら環境変数を付けて再起動
-
-# Terminal 2: cloudflared トンネル
 cloudflared tunnel --url http://localhost:3001
-# → https://{random}.trycloudflare.com が発行される
+# → https://xxxx-yyyy-zzzz.trycloudflare.com が一瞬で発行される
 ```
 
-トンネル URL を控えて、`ALLOWED_HOSTS` を付けてサーバーを再起動します。それから Claude.ai の **Settings → Connectors → Add custom connector** から以下を登録します。
+これめちゃくちゃ便利で、ローカルの dev サーバーに HTTPS の URL が一瞬で生えるというやつです。`tsx watch` で iterate しながら ChatGPT から動作確認できるので、開発中はこれ一択。
 
-- **Name**: `article-1-github-dashboard`
-- **Remote MCP server URL**: `https://{random}.trycloudflare.com/mcp` (末尾の `/mcp` 忘れずに)
+ただし cloudflared quick tunnel は本質的に開発用です。プロセスを止めると URL が死ぬし、認証もないし、Cloudflare 公式も「demo / dev only」と言っています。記事を公開して読者にも試してもらう、みたいな話になると、Fly.io / Cloudflare Workers / Railway / Render あたりのちゃんとしたホスティングに置くのが筋です。
 
-新しい会話で「facebook/react を分析して」と送るだけ。Claude が承認を求めてくるので OK を押すと、
+### 本当に怖いのは「API 課金焼き」
 
-![Claude.ai のダークテーマで描画されるダッシュボード](/images/mcp-apps-github-dashboard/04-dashboard-dark.png)
+MCP サーバーを公開する時に一番気にすべきは、実は「URL がバレること」ではなくて API 課金の爆死リスクです。
 
-**動いた瞬間、ちょっと感動します**。Claude の返答が「スター数は約 24.4 万と、GitHub 全体でもトップクラスのリポジトリですね」と自然言語で要約していて、同時に iframe には自作ダッシュボードが描画されている。**LLM と UI が同じツール結果の違う側面を見ている**状態が成立しています。
+想像してください。Fly.io に MCP サーバーを置いて安定 URL を手に入れた → 嬉しい → ついその URL を記事に書く → 悪意ある人がスクリプトで `ask_claude` を秒間 100 発叩く → 自分の ANTHROPIC_API_KEY で Claude Opus が無限に呼ばれる → 1 晩で数百ドル。
 
-Claude が iframe の origin として `77f710975aee5a81842747dfa064944a.claudemcpcontent.com` を割り当てていたのも発見でした。これは **MCP サーバーの URL から SHA-256 で計算された 32 文字ハッシュ**のサブドメインで、**セキュリティモデルが仕様レベルで定義されている**証拠です。公式仕様の `computeAppDomainForClaude()` そのままで、実装がブレていませんでした。
+quick tunnel の時代は「URL が秘密っぽい」「止めれば消える」という天然の防壁が効いていましたが、ちゃんとしたホスティングに移った瞬間、その防壁が消えます。
 
-ちなみに Claude.ai のテーマ切替にも追従します。Light で立ち上げて、途中で Claude 側を Dark モードに切り替えると、iframe の中のダッシュボードもリアルタイムで dark に遷移します。`app.onhostcontextchanged` で受けた theme を React state に流しているだけですが、**ホスト ↔ iframe のテーマ同期が protocol レベルで定義されている**のは地味にすごいです。
+### まず Anthropic Console の spend cap を入れる
 
-## 今できないこと・知っておくべき制約
+この地雷を踏まないための最も効く最後の砦が、Anthropic Console の monthly spend cap です。Settings → Limits から月次の最大課金額を指定できて、仮に何が起きてもキャップを超えた瞬間に API が 429 を返し始めるので、物理的にそれ以上焼けなくなります。
 
-動くとはいえ現時点の制約もあります。
+実装コスト 0、画面でポチるだけ、強制的な上限。公開するなら真っ先にこれを入れるべきです。
 
-- **状態永続化なし**: 会話を閉じると UI の状態 (scroll 位置、入力中の値など) は消える
-- **ホスト差分あり**: VS Code Copilot はフルスクリーン / PiP 未対応、ChatGPT は UI からのツール呼び出しが一部制限
-- **CSP 宣言が厳しめ**: 外部リソースを使うなら全部宣言が必要で、**宣言漏れはサイレントに壊れる** (DevTools Console で初めて気づく)
-- **cloudflared quick tunnel の URL は毎回変わる**: named tunnel を使えば固定できますが Cloudflare アカウントが要る
+## 認証まわりのちょっとした話
 
-あと**画像を iframe 内で大きく描画すると、ホストがその分だけ縦の space を取る**ため、チャットのスクロールが長くなります。basic-host では 5000px 相当の iframe が確保されていて笑いました。
+あともう 1 つ、ChatGPT に繋ぐときに地味に面倒だったのが認証です。
 
-## おわり
+ChatGPT の Custom Connector の認証方式は OAuth / No Auth / Mixed の 3 つ。API Key がそもそも選べなくて、MCP 仕様が OAuth 2.1 を正規の方式として推しているので、そういう作りになっています。
 
-MCP Apps は一言で言うと **「MCP ツールが HTML を返せるようになる」** という話ですが、実際に作ってみると、裏側にあるのは iframe と postMessage と CSP という **既存の Web 技術だけ**でした。新しいフレームワークを覚える必要は実はなくて、**Web フロントエンドの知識 + ちょっとしたプロトコル規約** で動きます。
+![ChatGPT の Authentication ドロップダウン](/images/mcp-apps-claude-second-opinion/04-chatgpt-auth-dropdown.png)
 
-学んだことをまとめると:
+というわけで、MCP サーバー側に OAuth 2.1 の Authorization Server を同居させる必要がありました。MCP 仕様は裏側で RFC 8414 / 7591 / 9728 + PKCE (S256) を要求してくるので、ドキュメント見ながら地道に書くしかないです。本気の OAuth プロバイダを作ろうとすると大仕事ですが、自分 1 人が使う前提でガッツリ割り切ると思ったよりは小さく収まりました。
 
-- **`content` と `structuredContent` の二本立てが本質**: LLM と UI が同じツール結果を別の側面で使う設計
-- **CSP と DNS rebinding 保護が最大の罠**: 「ローカルで動いてたのに Claude で動かない」のギャップはほぼこの 2 つ
-- **`useApp()` は React の慣例を意図的に破る**: プロトコル整合性のために再実行と unmount close をしない設計
-- **Claude は stable origin を SHA-256 ハッシュで計算**: セキュリティモデルが仕様レベルで定義されている
-- **Write Once, Run Anywhere は現実になりつつある**: Claude・ChatGPT・VS Code が同じ MCP サーバーを読む時代に入った
+触ってみて得た観点をポイントベースで残しておきます。
 
-次回は **LangGraph のエージェントに MCP Apps の UI を組み込む** 話を書く予定です。`langchain-mcp-adapters` は MCP ツールを吸い上げますが **`_meta.ui.resourceUri` は扱わない**ので、自作ホストを書いて iframe を描画する必要が出てくる、という展開になります。LangGraph の `interrupt()` と MCP Apps の承認 UI をつなげて、**副作用 (DB UPDATE) を人間が UI で承認するエージェント** を作る予定です。
+- ChatGPT Custom Connector は OAuth 2.1 + PKCE (S256) 必須で、API Key 共有方式は使えない
+- 個人用途なら Authorization Server と Resource Server を 1 プロセスに同居させてよい。MCP 仕様もそれを許容している
+- 同意画面は普通の HTML を 1 枚返すだけで成立する。テーマ色に合わせてオレンジにしたらそれっぽい見た目になった
+- トークンはインメモリの Map で十分。再起動したら再ログインが必要になるけど、個人用途なら許容範囲
+- Anthropic Console の spend cap と併用しておけば、認証が万一突破されても課金被害は絶対額で頭打ちになる
 
-リポジトリはこちら: [`peintangos/mcp-apps-sample`](https://github.com/peintangos/mcp-apps-sample) (記事公開時に public 化予定)
+自作 OAuth サーバーが返す同意画面はこんな感じ。`/authorize` に飛んできたときにサーバーが返すだけのシンプルな HTML です。
 
-おわり
+![自前 OAuth サーバーが描画する同意画面](/images/mcp-apps-claude-second-opinion/03-oauth-consent-screen.png)
+
+実装は `src/oauth.ts` に 300 行ちょっとで全部入っているので、興味があれば覗いてみてください。
+
+## 最後に
+
+いかがでしたでしょうか。割と遊び半分でやってみましたが、ライバルベンダーの LLM が 1 枚の UI で握手する体験は意外と未来感があって面白かったです。
+
+今回やったことを改めて整理すると:
+
+- MCP Apps のおかげで、ツールの結果を iframe でリッチに描画できるようになった
+- Write Once, Run Anywhere という触れ込みは本物で、同じ `mcp-app.html` が ChatGPT でも Claude Desktop でもそのまま動いた
+- 公開するなら Anthropic Console の spend cap を真っ先に入れる。これを忘れると API 課金が焼かれる
+- 開発中は cloudflared quick tunnel、公開は Fly.io などのちゃんとしたホスティング、という使い分けが落ち着きどころ
+- ChatGPT の Custom Connector は OAuth 2.1 前提なので、サーバー側に最小 Authorization Server を同居させる
+
+コードはすべて GitHub リポジトリ ([peintangos/mcp-apps-sample](https://github.com/peintangos/mcp-apps-sample)) の `projects/article-3/` 配下にあります。`.env.example` をコピーして `ANTHROPIC_API_KEY` と `OAUTH_OWNER_PASSWORD` をセットして `npm install && npm run build && npm start` したら、ローカルでそのまま動きます (ローカル開発だけなら `OAUTH_OWNER_PASSWORD` は空のままでも可、その場合 OAuth は無効化されます)。
+Fly.io にデプロイするための `Dockerfile` と `fly.toml` もリポジトリに入っているので、`fly deploy` で同じ構成を再現できます。
+
+次は何を書くかまだ決めていないですが、MCP Apps 越しに複数 LLM を束ねる方向はまだまだ掘れそうなので、Gemini や Llama を足した「LLM 合議制」みたいなネタも面白いかもな〜とぼんやり考えています。
+
+## 参考文献
+
+- [Model Context Protocol (公式)](https://modelcontextprotocol.io/)
+- [OAuth 2.1 draft (IETF)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1)
+- [RFC 7636 — Proof Key for Code Exchange (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636)
+- [RFC 8414 — OAuth 2.0 Authorization Server Metadata](https://datatracker.ietf.org/doc/html/rfc8414)
+- [RFC 7591 — OAuth 2.0 Dynamic Client Registration Protocol](https://datatracker.ietf.org/doc/html/rfc7591)
+- [RFC 9728 — OAuth 2.0 Protected Resource Metadata](https://datatracker.ietf.org/doc/html/rfc9728)
+
+おわり。

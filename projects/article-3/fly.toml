@@ -1,0 +1,32 @@
+# Fly.io deployment config for Article 3 — ChatGPT × Claude Second Opinion
+# 初回: `fly apps create article-3-claude-second-opinion --org personal`
+# 以降: `fly deploy`
+#
+# Secrets (= env vars with redaction) は必ず CLI でセット:
+#   fly secrets set \
+#     ANTHROPIC_API_KEY=sk-ant-... \
+#     OAUTH_OWNER_PASSWORD=$(openssl rand -hex 16) \
+#     OAUTH_ISSUER=https://article-3-claude-second-opinion.fly.dev \
+#     ALLOWED_HOSTS=article-3-claude-second-opinion.fly.dev
+
+app = "article-3-claude-second-opinion"
+primary_region = "nrt"  # Narita — 著者が東京近郊なので
+
+[build]
+
+[env]
+  PORT = "3001"
+  MCP_HOST = "0.0.0.0"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"       # アイドル時にマシン停止 (無料枠節約)
+  auto_start_machines = true        # 次のリクエストで自動起動
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256                   # 無料枠 (shared-cpu-1x, 256MB) に収める

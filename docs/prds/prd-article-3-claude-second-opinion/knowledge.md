@@ -24,6 +24,13 @@
 - **ブランドカラーで列を区別**: ChatGPT 列は `#10a37f` (OpenAI 緑)、Claude 列は `#d97757` (Anthropic オレンジ) をラベルに使用。両テーマで色を固定することで、ダーク時でもどちらの回答か一瞬でわかる
 - **`isToolRunning` フラグで loading 状態を追従**: `ontoolinput` で `true` に、`ontoolresult` で `false` にする。これで tool 呼び出し中に "考え中…" の loading 表示を出せる。単純だが spec-002 までの実装では抜けていた改善ポイント
 - **spec-003 のバンドルサイズ実測**: react-markdown を追加して 313 KB / gzipped 93 KB → **435 KB / gzipped 129 KB** (+122 KB / +36 KB)。予算 500 KB に対して 26%、余裕あり。Article 1 の spec-003 (Recharts 投入) が gzipped 190 KB だったのと比較すると、比較 UI の方が軽い
+- **ChatGPT Custom Connector の認証選択肢は `OAuth / No Auth / Mixed` の 3 択のみ** — Custom GPT Actions 時代の `API Key` は無い。これは MCP 仕様が OAuth 2.1 を正規の認証方式として推しているため。MCP サーバー公開時に Bearer トークンを共有秘密として使いたい場合、**ChatGPT 経由では不可能** で、Claude Desktop の config ファイル経由だけで有効
+- **minimal OAuth 2.1 server を MCP サーバーに同居させる構成が成立する** (spec-006) — サーバーが Authorization Server + Resource Server を兼ねる構成で、追加エンドポイントは `/.well-known/oauth-authorization-server` (RFC 8414) + `/.well-known/oauth-protected-resource` (RFC 9728) + `/register` (RFC 7591 DCR) + `/authorize` GET/POST + `/token`。1 ファイル ~350 行で収まる。ストレージはインメモリ Map + TTL、トークンは不透明ランダム文字列 (JWT 不要)、PKCE は S256 必須 (`plain` 拒否)、password-based consent screen の割り切りが効く
+- **`createMcpExpressApp` の DNS rebinding 保護は `/mcp` 以外の全ルートにも効く** — OAuth エンドポイントも含めて、`allowedHosts` に入ってないホスト名で叩くと全部 403 `Invalid Host` で落ちる。ローカルテスト時は `127.0.0.1:<port>` を `ALLOWED_HOSTS` に明示するか、そもそも `curl http://127.0.0.1:<port>` でアクセスする必要がある (SDK は host 部分を一致比較する。`localhost` と `127.0.0.1` は別扱い)
+- **RFC 9728 の `WWW-Authenticate: Bearer resource_metadata=...` challenge ヘッダ**: 401 時に resource metadata URL を指し示すと、MCP クライアントはそこから authorization_servers を辿れる。これが `/.well-known/oauth-protected-resource` の存在理由で、「MCP resource server と authorization server を分離できる」という設計の根拠になっている
+- **OAuth code を one-time 化する実装は PKCE 失敗時も `codes.delete(code)` する** のが安全 — attacker が code を手に入れて verifier を brute force する攻撃を封じるため。成功/失敗に関わらず code は即廃棄する
+- **PKCE の constant-time compare**: `crypto.timingSafeEqual` は同じ長さの Buffer でしか動かない。`Buffer.from(a).length !== Buffer.from(b).length` で長さチェックを先に入れてから `timingSafeEqual` を呼ぶ。これを忘れると例外で落ちる
+- **OAuth サーバーローカルテストの正解パターン**: `OAUTH_OWNER_PASSWORD=test PORT=3005 OAUTH_ISSUER=http://127.0.0.1:3005 ALLOWED_HOSTS=127.0.0.1:3005,127.0.0.1 npx tsx server.ts` でサーバーを立てる + `openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '='` で code_challenge を生成 + `--data-urlencode` で POST する、の組み合わせで discovery → register → authorize → token → /mcp の全フローを検証できる
 
 ## Gotchas
 

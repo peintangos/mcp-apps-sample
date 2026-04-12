@@ -14,6 +14,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { z } from "zod";
 import { askClaude, type AskClaudeError } from "./src/claude.js";
+import {
+  registerOAuthRoutes,
+  verifyAccessToken,
+} from "./src/oauth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -54,14 +58,17 @@ function createMcpServer(): McpServer {
     "ask_claude",
     {
       title: "Ask Claude (second opinion)",
-      description:
-        "Forwards a question to Claude via the Anthropic API and returns the answer for side-by-side comparison with the caller model (e.g. ChatGPT). spec-001 stage: returns a hardcoded placeholder string. Real API integration lands in spec-002.",
+      description: `Get a second opinion from Claude (Anthropic). Call this tool whenever the user asks for a "second opinion", says "Claude にも聞いて" / "Claude に相談" / "Claude と比較", asks "他のモデルはどう思う?", or otherwise signals they want Claude's view on something.
+
+The tool forwards the question to Claude via the Anthropic API and renders Claude's answer as a rich Markdown card inside the chat. Your own answer to the user is already shown in the regular chat message above the iframe, so you do NOT need to duplicate it inside the tool.
+
+Parameters:
+- question: the question to forward (pass the user's original question verbatim)
+- model: "sonnet" (default, fast) or "opus" (slower but deeper) — pick based on how hard the question is
+
+Workflow: first answer the user's question yourself concisely in the chat, then immediately invoke this tool in the same turn. The iframe will render Claude's independent view underneath.`,
       inputSchema: {
         question: z.string().describe("The question to forward to Claude"),
-        chatgpt_answer: z
-          .string()
-          .optional()
-          .describe("The caller LLM's own answer, to be shown next to Claude's"),
         model: z
           .enum(["sonnet", "opus"])
           .optional()
@@ -69,7 +76,7 @@ function createMcpServer(): McpServer {
       },
       _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
     },
-    async ({ question, chatgpt_answer, model }) => {
+    async ({ question, model }) => {
       const result = await askClaude(question, { model });
 
       const errorResult = (error: AskClaudeError) => ({
@@ -81,7 +88,6 @@ function createMcpServer(): McpServer {
         ],
         structuredContent: {
           question,
-          chatgpt_answer: chatgpt_answer ?? null,
           error,
         },
         isError: true,
@@ -98,7 +104,6 @@ function createMcpServer(): McpServer {
         ],
         structuredContent: {
           question,
-          chatgpt_answer: chatgpt_answer ?? null,
           claude_answer: result.data.text,
           model_used: result.data.modelUsed,
           latency_ms: result.data.latencyMs,
@@ -151,31 +156,56 @@ const app = createMcpExpressApp({
 });
 app.use(cors());
 app.use(express.json());
+// OAuth の /token と /authorize POST は form-encoded で送られてくるため併用
+app.use(express.urlencoded({ extended: false }));
 
-app.post("/mcp", async (req, res) => {
-  const server = createMcpServer();
-  try {
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
-    res.on("close", () => {
-      transport.close();
-      server.close();
-    });
-  } catch (err) {
-    console.error("[article-3] handleRequest failed:", err);
-    if (!res.headersSent) {
-      res.status(500).json({
-        jsonrpc: "2.0",
-        error: { code: -32603, message: "Internal server error" },
-        id: null,
+// OAuth 2.1 認可:
+// - `OAUTH_OWNER_PASSWORD` が設定されていれば OAuth モードで起動し、
+//   /.well-known/* /register /authorize /token をマウント、/mcp を保護する
+// - 未設定ならローカル開発モードとして /mcp は無保護 (basic-host で簡単に叩けるように)
+// - 公開ホスティング (Fly.io 等) では必ず OAUTH_OWNER_PASSWORD をセットする
+const oauthEnabled = Boolean(process.env.OAUTH_OWNER_PASSWORD);
+if (oauthEnabled) {
+  registerOAuthRoutes(app);
+  console.log("[article-3] OAuth 2.1 authorization server enabled");
+} else {
+  console.warn(
+    "[article-3] ⚠️  OAUTH_OWNER_PASSWORD is not set. OAuth is disabled and /mcp is open. " +
+      "This is OK for local development but NEVER for public deployment.",
+  );
+}
+
+app.post(
+  "/mcp",
+  (req, res, next) => {
+    if (oauthEnabled) return verifyAccessToken(req, res, next);
+    next();
+  },
+  async (req, res) => {
+    const server = createMcpServer();
+    try {
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
       });
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+      res.on("close", () => {
+        transport.close();
+        server.close();
+      });
+    } catch (err) {
+      console.error("[article-3] handleRequest failed:", err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: null,
+        });
+      }
     }
-  }
-});
+  },
+);
 
 app.get("/mcp", (_req, res) => {
   res.status(405).json({
