@@ -17,6 +17,8 @@
 - **ダブル iframe サンドボックスの実装パターン**: basic-host は外側 iframe (`ui://` リソースのラッパー) と内側 iframe (我々の React UI) の両方を**同じオリジン (`localhost:8081`)** で動かしつつ、ホストページ (`localhost:8080`) とはオリジンを分けている。accessibility tree 上では "MCP-UI Proxy" (外) → "hello_time" (内) のネストとして見える
 - **`useApp()` の `Connected` 状態は postMessage ハンドシェイク完了のサイン**: basic-host 経由でロードすると、React 初期描画時は "Connecting…" でそのまま "Connected" に切り替わる。切り替わらなかった場合はホスト側の `ui/initialize` が来ていない証拠 (例: 親ページが MCP Apps プロトコルを話せない、iframe の origin 設定ミス)
 - **API クライアントは `Result<T>` 型 + ユニオンで返す**: `throw` ではなく `{ ok: true; data } | { ok: false; error }` を返すと、呼び出し側で try/catch を書かずに `if (result.ok)` で型が絞り込まれて分岐できる。MCP のツールハンドラから返す構造化エラーとも相性が良く、**UI → 構造化エラーカード描画** の流れが try/catch より自然
+- **MCP tool のエラー応答は `isError: true` + `structuredContent.error`**: `content` は human-readable なテキスト (LLM が読める形)、`structuredContent` は UI が直接読む構造化データ。両方セットすると LLM と UI の両方が同じ結果を理解できる。`isError: true` を付けると MCP SDK が "エラー状態" としてホストに通知する
+- **zod `inputSchema` は自動的に JSON Schema に変換される**: `inputSchema: { owner: z.string().describe("..."), repo: z.string() }` と書くと、MCP SDK が `tools/list` レスポンスで Draft-07 JSON Schema に変換する。`z.string().describe()` の description も保持される。クライアント側の型検証はホストに任せられる
 
 ## Integration Notes
 

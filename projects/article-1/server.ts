@@ -11,6 +11,14 @@ import express from "express";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { z } from "zod";
+import {
+  fetchRepo,
+  fetchLanguages,
+  fetchContributors,
+  type AnalyzeRepoResult,
+  type AnalyzeRepoError,
+} from "./src/github.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +73,85 @@ function createMcpServer(): McpServer {
         },
       ],
     }),
+  );
+
+  registerAppTool(
+    server,
+    "analyze_repo",
+    {
+      title: "Analyze GitHub Repository",
+      description:
+        "Fetches a GitHub public repository's star count, language breakdown, and top contributors, and renders them as a dashboard inside the MCP Apps iframe.",
+      inputSchema: {
+        owner: z.string().describe("Repository owner (user or organization)"),
+        repo: z.string().describe("Repository name"),
+      },
+      _meta: {
+        ui: { resourceUri: UI_RESOURCE_URI },
+      },
+    },
+    async ({ owner, repo }) => {
+      const [repoRes, langsRes, contribsRes] = await Promise.all([
+        fetchRepo(owner, repo),
+        fetchLanguages(owner, repo),
+        fetchContributors(owner, repo),
+      ]);
+
+      const errorResult = (error: AnalyzeRepoError) => ({
+        content: [
+          {
+            type: "text" as const,
+            text: `GitHub API error (${error.code}): ${error.message}`,
+          },
+        ],
+        structuredContent: { error },
+        isError: true,
+      });
+
+      if (!repoRes.ok) return errorResult(repoRes.error);
+      if (!langsRes.ok) return errorResult(langsRes.error);
+      if (!contribsRes.ok) return errorResult(contribsRes.error);
+
+      const totalBytes = Object.values(langsRes.data).reduce(
+        (a, b) => a + b,
+        0,
+      );
+      const languages = Object.entries(langsRes.data)
+        .map(([name, bytes]) => ({
+          name,
+          percentage: totalBytes > 0 ? (bytes / totalBytes) * 100 : 0,
+        }))
+        .sort((a, b) => b.percentage - a.percentage);
+
+      const contributors = contribsRes.data.slice(0, 5).map((c) => ({
+        login: c.login,
+        avatarUrl: c.avatar_url,
+        contributions: c.contributions,
+      }));
+
+      const result: AnalyzeRepoResult = {
+        owner,
+        repo,
+        stars: repoRes.data.stargazers_count,
+        languages,
+        contributors,
+      };
+
+      const topLang = languages[0];
+      const summary = topLang
+        ? `${owner}/${repo}: ${result.stars.toLocaleString()} stars, top language ${topLang.name} (${topLang.percentage.toFixed(1)}%), ${contributors.length} contributors`
+        : `${owner}/${repo}: ${result.stars.toLocaleString()} stars, ${contributors.length} contributors`;
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: summary,
+          },
+        ],
+        structuredContent: result,
+      };
+    },
   );
 
   registerAppResource(
