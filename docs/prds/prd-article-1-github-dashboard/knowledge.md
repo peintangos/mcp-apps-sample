@@ -10,6 +10,8 @@
 - **`enableJsonResponse: true`**: `StreamableHTTPServerTransport` のオプション。SSE ストリームではなく単純な JSON レスポンスを返すモード。curl での smoke test や `enableJsonResponse` 非対応クライアントで便利
 - **`useApp()` フックの基本パターン**: `appInfo` + `capabilities` + `onAppCreated` の 3 つだけで成立。`onAppCreated` 内で `app.ontoolresult = (params) => {...}` を設定し、`params.content` (CallToolResult shape) からテキストブロックを取り出して React state にセットする
 - **`useApp()` の "意図的な再実行抑止"**: フックは options 変更時に**意図的に再実行されない** (再接続ループを避けるため)。また App インスタンスは unmount 時に**自動 close されない** (React StrictMode の double-mount 対応)。これは普通の React フックの挙動と異なるので、説明文に明示的に書く価値がある
+- **`vite.config.ts` で `root: src` + 絶対パス指定**: Vite の `root` を `src` に切り替えると、build 出力が `dist/mcp-app.html` (root 直下) に出る。`outDir` と `rollupOptions.input` は **`path.resolve(__dirname, ...)` の絶対パス**にすると相対解決の混乱を避けられる
+- **`vite-plugin-singlefile` のビルド結果サイズ感**: hello_time UI (React 19 + ext-apps SDK + ステータスバッジ) で **312KB / gzipped 92KB**。React 一式と MCP Apps SDK が全部 inline されているにしては小さい。Recharts を入れる spec-003 で再評価 (上限 500KB gzipped 目標)
 
 ## Integration Notes
 

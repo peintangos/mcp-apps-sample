@@ -42,7 +42,7 @@ Feature: 最小 MCP App の往復
 - [x] `server.ts` で `McpServer` を起動し `hello_time` を `registerAppTool` で登録 + UI リソースを `registerAppResource` で登録 + `dist/mcp-app.html` フォールバック実装 (2026-04-12)
 - [x] `src/mcp-app.html` を Vite の UI リソース用エントリポイントとして作成 (2026-04-12)
 - [x] `src/main.tsx` で `@modelcontextprotocol/ext-apps/react` の `useApp()` を使い、サーバー時刻を描画 (`HelloTimeApp` + `StatusBadge` で connecting/connected/error 状態を可視化、2026-04-12)
-- [ ] `vite.config.ts` を `viteSingleFile()` プラグイン入りで作成し、単一 HTML を出力
+- [x] `vite.config.ts` を `viteSingleFile()` プラグイン入りで作成し、単一 HTML を出力 (`dist/mcp-app.html` 312KB / gzip 92KB、2026-04-12)
 - [x] `registerAppResource` を配線して `dist/mcp-app.html` を `text/html;profile=mcp-app` として返す (Vite ビルド前はフォールバック HTML、2026-04-12)
 - [ ] `modelcontextprotocol/ext-apps` をクローンし、`basic-host` からこのサーバーに接続して往復を手動確認
 - [ ] 最小 UI の basic-host 上スクリーンショットを `docs/references/MCP Apps/screenshots/spec-001/` に保存
