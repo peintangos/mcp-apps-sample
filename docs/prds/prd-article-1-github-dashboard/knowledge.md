@@ -35,6 +35,8 @@
 - **Claude は `content[0].text` を読んで自然言語に統合する**: `analyze_repo` の `content: [{ type: "text", text: "facebook/react: 244,424 stars, top language JavaScript (68.4%)..." }]` を Claude が読み取り、「スター数は約24.4万と、GitHub全体でもトップクラスのリポジトリですね」というように要約してチャットに返す。これは MCP Apps の "LLM + UI が同じ結果を共有する" 設計の実証で、記事の核心的な章で使える
 - **Claude は `tool_meta.ui.resourceUri` の UI リソースを iframe に自動注入する**: 別途設定なしでダッシュボードが iframe として会話に埋め込まれる。開発者は UI 描画のためのフロント実装を書かない (ユーザーの Claude.ai が全部やる)。これが MCP Apps が `langchain-mcp-adapters` 等の通常の MCP クライアントと違う決定的な差分
 - **Claude.ai の Connectors 設定は `/settings/connectors` に Add custom connector ボタンがある**: Name と Remote MCP server URL の 2 つを入れるだけで追加可能 (OAuth は optional)。2026-04 時点ではヘッダに "Connectors have moved to Customize" 通知があり、新しい場所は `/customize/connectors`
+- **Zenn 記事のディレクトリ構成**: `articles/{slug}.md` (frontmatter 付き) + `images/{slug}/*.png` (相対パスは `/images/{slug}/xxx.png`) が Zenn CLI 標準。Zenn CLI をまだ setup していなくても、この構成でファイルを作っておけば後から `npx zenn init` → GitHub 連携で即公開できる
+- **article-writer skill の文体ルール**: Zenn はですます調 (カジュアル混ぜ)、太字多用、「〜について解説します」「いかがでしたか」禁止、「おわり」で締め、が筆者 peintangos の典型パターン。ほぼ全記事に共通
 
 ## Integration Notes
 

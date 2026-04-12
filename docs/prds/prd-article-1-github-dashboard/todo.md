@@ -22,7 +22,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-004: `cloudflared tunnel --url http://localhost:3001` で HTTPS 公開 — `mechanisms-birds-terminal-blues.trycloudflare.com` 経由で `initialize` 通過を curl 確認、DNS rebinding 保護回避のため `ALLOWED_HOSTS` 環境変数を `server.ts` に追加 (2026-04-12)
 - [x] spec-004: Claude.ai Connectors 設定に URL を追加し、"facebook/react を分析して" で動作確認 — Claude が analyze_repo を呼び、iframe ダッシュボードが正常描画、Claude は構造化データを自然言語に統合 (2026-04-12)
 - [x] spec-004: 動作確認のスクリーンショット (basic-host / Claude.ai 両方) を `docs/references/MCP Apps/screenshots/` に保存 — spec-001/ + spec-003/ + spec-004/ の 3 ディレクトリ合計 15 枚 (2026-04-12)
-- [ ] spec-005: Zenn 記事ドラフトを執筆 (骨子 9 章構成、`article-writer` スキル活用)
-- [ ] spec-005: 記事内のコードブロックを実際のリポジトリからの抜粋に差し替え、動作検証
+- [x] spec-005: Zenn 記事ドラフトを執筆 (骨子 9 章構成、`article-writer` スキル活用) — `articles/mcp-apps-github-dashboard.md` に Zenn CLI 形式で 7000 字ドラフト完成、セルフレビュー 5 項目パス (2026-04-12)
+- [x] spec-005: 記事内のコードブロックを実際のリポジトリからの抜粋に差し替え、動作検証 — 全コードスニペットを実装から直接コピー、バージョン番号は実インストール値 (TS 6 / React 19 / Vite 8 / Express 5) (2026-04-12)
 - [ ] spec-005: `/code-review` / `docs-review` スキルで記事ドラフトをレビュー
 - [ ] spec-005: Zenn CLI または Web から公開し、公開 URL を `knowledge.md` に記録

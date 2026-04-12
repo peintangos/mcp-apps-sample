@@ -33,11 +33,11 @@ Feature: Article 1 の Zenn 公開
 
 ## Implementation Steps
 
-- [ ] `article-writer` スキル (Zenn スタイル) で 9 章構成のドラフトを執筆
-- [ ] コードスニペットをリポジトリから逐語的にコピーする (書き換えない)
-- [ ] `docs/references/MCP Apps/screenshots/` のスクリーンショットを挿入
-- [ ] `knowledge.md` に記録した実エラーをもとに CSP ハマりどころの章を執筆
-- [ ] Article 2 PRD を予告する章を執筆
+- [x] `article-writer` スキル (Zenn スタイル) で 9 章構成のドラフトを執筆 — `articles/mcp-apps-github-dashboard.md` に約 7000 字、10 セクション構成で執筆、ですます調 + 口語的崩し + 太字強調、writing-style.md の 5 項目セルフレビュー通過 (2026-04-12)
+- [x] コードスニペットをリポジトリから逐語的にコピーする (書き換えない) — `server.ts` の `createMcpServer` / `registerAppTool` / `registerAppResource` / `_meta.ui.csp`、`main.tsx` の `useApp` + `onhostcontextchanged`、`ALLOWED_HOSTS` env var パターンをすべて実装から抜粋 (2026-04-12)
+- [x] `docs/references/MCP Apps/screenshots/` のスクリーンショットを挿入 — 4 枚を `images/mcp-apps-github-dashboard/` にコピーし `/images/...` 相対パスで参照 (hero / basic-host / dashboard closeup / dark theme) (2026-04-12)
+- [x] `knowledge.md` に記録した実エラーをもとに CSP ハマりどころの章を執筆 — "ハマりどころ 3 連発" セクションに Recharts ResponsiveContainer / CSP img-src / DNS rebinding 保護の 3 件を実エラーメッセージ付きで記述 (2026-04-12)
+- [x] Article 2 PRD を予告する章を執筆 — 末尾に LangGraph × interrupt × 承認 UI の予告を追加、`prd-article-2-langgraph-sql` と内容的に整合 (2026-04-12)
 - [ ] `/code-review` をドラフトに対して実行
 - [ ] `docs-review` をドラフトとリンク先コードに対して実行
 - [ ] Zenn に公開 (Zenn CLI または Web)

@@ -10,7 +10,7 @@ Use only these status values: `pending`, `in-progress`, `done`
 | spec-002-github-analyze-tool | GitHub Analyze Repo Tool | done | 2026-04-12 | `server.ts` に `analyze_repo` 登録、facebook/react で 244k stars を取得・構造化、404 系も isError で返る |
 | spec-003-dashboard-ui | React Dashboard UI Resource | done | 2026-04-12 | Recharts ダッシュボード + ThemeContext による light/dark 追従完了、basic-host で両テーマ視覚検証済み |
 | spec-004-claude-desktop-integration | Claude Desktop Integration and CSP | done | 2026-04-12 | Claude.ai で analyze_repo を実行、ハッシュサブドメイン経由で iframe ダッシュボードが描画、記事のヒーローショット取得済み |
-| spec-005-zenn-article-publish | Zenn Article Draft and Publish | pending | | |
+| spec-005-zenn-article-publish | Zenn Article Draft and Publish | in-progress | | ドラフト完成 (`articles/mcp-apps-github-dashboard.md`、約 7000 字、10 セクション)、画像 4 枚 `/images/mcp-apps-github-dashboard/` に配置、残るは公式レビュー + Zenn 公開 (2026-04-12) |
 
 ## Summary
 
