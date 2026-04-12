@@ -18,6 +18,12 @@
 - **Anthropic SDK のエラー判別は HTTP status で十分**: SDK は `Anthropic.APIError` などのクラスを提供しているが、`instanceof` 判定より `err.status === 401 / 429` の方が portable。429 時の reset 時刻は `anthropic-ratelimit-requests-reset` または `anthropic-ratelimit-tokens-reset` ヘッダから取得
 - **chatgpt_answer を Claude に渡さない設計判断**: Claude には質問だけを投げ、`chatgpt_answer` は UI 側で並べるためにだけ structuredContent で搬送。これにより Claude は "ChatGPT の回答を見ない状態での独立した意見" を返し、**中立な side-by-side 比較** が成立する。Claude に chatgpt_answer を見せると "似たこと言ってる" とか "間違いを指摘する" 挙動になって公平性が崩れる
 - **Claude は MCP Apps について断片的な知識しかない (2026-04-12 時点)**: "MCP Apps の本質を 1 文で" と聞いたら、MCP 全般 (AIエージェントが外部ツールに接続する標準プロトコル) の説明が返ってきた。Claude の training cutoff に MCP Apps の SEP-1865 が含まれていないのか、記事的に面白い観察 — **複数 LLM の比較では "知識のムラ" が可視化される** という副次的な面白さ
+- **`react-markdown` の `components` prop で theme-aware な描画**: `components={{ p: ..., code: ..., pre: ... }}` を渡すと、各 Markdown 要素のレンダリングを React コンポーネントに差し替えられる。`useColors()` と組み合わせると、`pre` の background と border を theme で切り替えられる。シンタックスハイライトライブラリを使わなくても、Markdown の見た目は十分に整う
+- **シンタックスハイライトは意図的に入れない判断**: `react-syntax-highlighter` や `shiki` はバンドルサイズを数百 KB 押し上げる。Zenn 記事のコード例は短い断片が多く、ハイライトなしでも読めるので **バンドルサイズ優先で未導入**。これは Article 3 spec-003 で明示的に "Out of Scope" に格上げした決定
+- **`grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))` で自動レスポンシブ**: CSS Grid の auto-fit + minmax は、インラインスタイルのままでも media query なしで狭幅時に 2→1 カラムの自動 fallback を実現できる。広い時は 2 列、狭い時は 1 列、という典型的な比較レイアウトに最適
+- **ブランドカラーで列を区別**: ChatGPT 列は `#10a37f` (OpenAI 緑)、Claude 列は `#d97757` (Anthropic オレンジ) をラベルに使用。両テーマで色を固定することで、ダーク時でもどちらの回答か一瞬でわかる
+- **`isToolRunning` フラグで loading 状態を追従**: `ontoolinput` で `true` に、`ontoolresult` で `false` にする。これで tool 呼び出し中に "考え中…" の loading 表示を出せる。単純だが spec-002 までの実装では抜けていた改善ポイント
+- **spec-003 のバンドルサイズ実測**: react-markdown を追加して 313 KB / gzipped 93 KB → **435 KB / gzipped 129 KB** (+122 KB / +36 KB)。予算 500 KB に対して 26%、余裕あり。Article 1 の spec-003 (Recharts 投入) が gzipped 190 KB だったのと比較すると、比較 UI の方が軽い
 
 ## Gotchas
 

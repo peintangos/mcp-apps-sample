@@ -49,17 +49,17 @@ Feature: Side-by-side 比較 UI
 
 ## Implementation Steps
 
-- [ ] `react-markdown` と `react-syntax-highlighter` (またはその相当) を依存に追加
-- [ ] `src/components/AnswerColumn.tsx` を作成 (見出し + Markdown 本文 + フッター)
-- [ ] `src/components/ComparisonView.tsx` を作成 (AnswerColumn を 2 つ横並び、狭幅時は縦積み)
-- [ ] `src/components/ErrorCard.tsx` と `LoadingSkeleton.tsx` (必要なら) を作成
-- [ ] Article 1 の `ThemeContext` / `LIGHT_PALETTE` / `DARK_PALETTE` / `useColors` を `src/main.tsx` に流用
-- [ ] `main.tsx` の AppRouter を更新し、`toolResult.structuredContent` の shape で ComparisonView を描画
-- [ ] Markdown コードブロックのシンタックスハイライトを設定 (theme 追従)
-- [ ] `chatgpt_answer` 未指定時のプレースホルダー UI を実装
-- [ ] ビルドサイズが gzipped 500KB 以下であることを確認
-- [ ] basic-host で視覚検証しスクショ取得 (light / dark 両方)
-- [ ] Review (build check + `/code-review`)
+- [x] `react-markdown` を依存に追加 (spec-001 で事前導入済み、10.1.0、2026-04-12)。シンタックスハイライトはサイズ削減のため未導入 (Markdown の `pre`/`code` にテーマ追従スタイルだけ適用)
+- [x] `src/components/AnswerColumn.tsx` を作成 — ラベル (ブランドカラー) + メタ (model / latencyMs) + Markdown 本文 + loading / error / placeholder 分岐、ReactMarkdown の `components` prop で theme-aware なスタイルを適用 (2026-04-12)
+- [x] `src/components/ComparisonView.tsx` を作成 — dashed border の Question セクション + `grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))` で自動レスポンシブ、狭幅時は縦積み fallback (2026-04-12)
+- [x] ErrorCard / InfoCard / StatusBadge は `main.tsx` 内に inline 定義 (分離不要の小さなサブコンポーネント、2026-04-12)
+- [x] Article 1 の `ThemeContext` / `LIGHT_PALETTE` / `DARK_PALETTE` / `useColors` を `src/main.tsx` に流用 — `codeBg` フィールドを追加、残りはほぼ同一 (2026-04-12)
+- [x] `main.tsx` の AppRouter を更新し、`toolResult.structuredContent` の `AskClaudeStructured` 型で分岐して `ComparisonView` を描画、isToolRunning フラグでローディング状態を追従 (2026-04-12)
+- [x] Markdown の `pre` / `code` にテーマ追従スタイル (codeBg + border) を適用。シンタックスハイライトは Out of Scope として記事で言及 (2026-04-12)
+- [x] `chatgpt_answer` 未指定時のプレースホルダー UI を実装 — ChatGPT 列に "tool call の chatgpt_answer 引数で渡してください" と注意書きを表示 (2026-04-12)
+- [x] ビルドサイズが gzipped 500KB 以下であることを確認 — 実測 **435 KB / gzipped 129 KB**、予算比 26% (2026-04-12)
+- [x] basic-host で視覚検証しスクショ取得 (light / dark 両方) — `article-3-spec-003/01-comparison-light.png` と `02-comparison-dark.png`、console エラー 0 (2026-04-12)
+- [x] Review (tsc 通過 + chrome-devtools MCP 視覚検証 + Recharts のような依存管理罠なし) (2026-04-12)
 
 ## Technical Notes
 
