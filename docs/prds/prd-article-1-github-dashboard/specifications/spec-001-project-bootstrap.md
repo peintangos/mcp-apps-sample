@@ -39,11 +39,11 @@ Feature: 最小 MCP App の往復
 - [x] `package.json` を Node 20 engines とスクリプト (`build`, `dev:ui`, `dev:server`, `start`) で初期化 (`projects/article-1/package.json`、2026-04-12)
 - [x] `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `cors`, `typescript`, `tsx`, `vite`, `vite-plugin-singlefile`, `@vitejs/plugin-react`, `react`, `react-dom` + `@types/*` をインストール (2026-04-12)
 - [ ] デュアル ESM サーバー + Vite クライアント構成向けの `tsconfig.json` を作成
-- [ ] `server.ts` で `McpServer` を起動し `hello_time` を `registerAppTool` で登録
+- [x] `server.ts` で `McpServer` を起動し `hello_time` を `registerAppTool` で登録 + UI リソースを `registerAppResource` で登録 + `dist/mcp-app.html` フォールバック実装 (2026-04-12)
 - [ ] `src/mcp-app.html` を Vite の UI リソース用エントリポイントとして作成
 - [ ] `src/main.tsx` で `@modelcontextprotocol/ext-apps/react` の `useApp()` を使い、サーバー時刻を描画
 - [ ] `vite.config.ts` を `viteSingleFile()` プラグイン入りで作成し、単一 HTML を出力
-- [ ] `registerAppResource` を配線して `dist/mcp-app.html` を `text/html;profile=mcp-app` として返す
+- [x] `registerAppResource` を配線して `dist/mcp-app.html` を `text/html;profile=mcp-app` として返す (Vite ビルド前はフォールバック HTML、2026-04-12)
 - [ ] `modelcontextprotocol/ext-apps` をクローンし、`basic-host` からこのサーバーに接続して往復を手動確認
 - [ ] 最小 UI の basic-host 上スクリーンショットを `docs/references/MCP Apps/screenshots/spec-001/` に保存
 - [ ] Review (TypeScript コンパイル + `/code-review`)
