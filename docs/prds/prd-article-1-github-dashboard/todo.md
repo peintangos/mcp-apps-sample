@@ -6,7 +6,7 @@ Each unchecked task should be small enough to complete in one `/implement` run o
 Mark completed tasks with `- [x]` instead of removing them.
 -->
 
-- [ ] spec-001: `package.json` の初期化と最小依存 (`@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `typescript`, `vite`, `vite-plugin-singlefile`, `react`, `react-dom`) の追加
+- [x] spec-001: `package.json` の初期化と最小依存 (`@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `cors`, `typescript`, `tsx`, `vite`, `vite-plugin-singlefile`, `@vitejs/plugin-react`, `react`, `react-dom`, `@types/*`) の追加 — `projects/article-1/` に配置、2026-04-12 完了
 - [ ] spec-001: `server.ts` で MCP サーバーを初期化し、`hello_time` ツールと UI リソースを `registerAppTool` / `registerAppResource` で登録
 - [ ] spec-001: `src/mcp-app.html` と `src/main.tsx` で最小 UI を作成し `useApp()` でホスト接続
 - [ ] spec-001: `vite.config.ts` を `vite-plugin-singlefile` 構成にして `dist/mcp-app.html` を生成

@@ -36,8 +36,8 @@ Feature: 最小 MCP App の往復
 
 ## Implementation Steps
 
-- [ ] `package.json` を Node 20 engines とスクリプト (`build`, `start`, `dev`) で初期化
-- [ ] `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `cors`, `typescript`, `vite`, `vite-plugin-singlefile`, `react`, `react-dom` をインストール
+- [x] `package.json` を Node 20 engines とスクリプト (`build`, `dev:ui`, `dev:server`, `start`) で初期化 (`projects/article-1/package.json`、2026-04-12)
+- [x] `@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `cors`, `typescript`, `tsx`, `vite`, `vite-plugin-singlefile`, `@vitejs/plugin-react`, `react`, `react-dom` + `@types/*` をインストール (2026-04-12)
 - [ ] デュアル ESM サーバー + Vite クライアント構成向けの `tsconfig.json` を作成
 - [ ] `server.ts` で `McpServer` を起動し `hello_time` を `registerAppTool` で登録
 - [ ] `src/mcp-app.html` を Vite の UI リソース用エントリポイントとして作成
@@ -58,3 +58,24 @@ Feature: 最小 MCP App の往復
 - **UI のスタイル**: この spec ではベタ HTML + 最小 CSS (インライン) で十分。Recharts は spec-003 で追加
 - **外部依存**: この spec では外部 API を叩かない。GitHub API は spec-002 から
 - **未解決事項**: `@modelcontextprotocol/ext-apps` のバージョン pin は初回 `npm install` 時に確定し、記事内で明記する
+
+## Resolved Dependency Versions (2026-04-12 時点)
+
+初回 `npm install` で確定した実バージョン (PRD 初稿の想定とはメジャーバージョンがずれたものがある)。
+
+| パッケージ | 実バージョン | 初稿想定 | 備考 |
+|---|---|---|---|
+| `@modelcontextprotocol/sdk` | `^1.29.0` | — | |
+| `@modelcontextprotocol/ext-apps` | `^1.5.0` | v1.x | PRD 想定通り |
+| `express` | `^5.2.1` | `^4.x` | **Express 5 系を採用** (middleware API に変更あり) |
+| `cors` | `^2.8.6` | — | |
+| `react` | `^19.2.5` | `18` | **React 19 系を採用** |
+| `react-dom` | `^19.2.5` | `18` | React に合わせる |
+| `typescript` | `^6.0.2` | `5.x` | **TypeScript 6 系を採用** |
+| `vite` | `^8.0.8` | `5.x` | **Vite 8 系を採用** (config 形式は後方互換あり) |
+| `vite-plugin-singlefile` | `^2.3.2` | `2.x` | PRD 想定通り |
+| `@vitejs/plugin-react` | `^6.0.1` | — | React 19 対応バージョン |
+| `tsx` | `^4.21.0` | — | `server.ts` を TypeScript のまま起動するため |
+| `@types/node` | `^25.6.0` | — | |
+
+記事執筆時にはこのバージョン表をそのまま引用する。

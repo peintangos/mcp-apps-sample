@@ -6,7 +6,7 @@ Use only these status values: `pending`, `in-progress`, `done`
 
 | Specification | Title | Status | Completed On | Notes |
 |---------------|-------|--------|--------------|-------|
-| spec-001-project-bootstrap | Project Bootstrap and Minimal MCP App | pending | | |
+| spec-001-project-bootstrap | Project Bootstrap and Minimal MCP App | in-progress | | `projects/article-1/` を作成、package.json + 依存インストール完了 (2026-04-12) |
 | spec-002-github-analyze-tool | GitHub Analyze Repo Tool | pending | | |
 | spec-003-dashboard-ui | React Dashboard UI Resource | pending | | |
 | spec-004-claude-desktop-integration | Claude Desktop Integration and CSP | pending | | |
