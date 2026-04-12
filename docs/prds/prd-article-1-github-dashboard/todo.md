@@ -8,7 +8,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 
 - [x] spec-001: `package.json` の初期化と最小依存 (`@modelcontextprotocol/sdk`, `@modelcontextprotocol/ext-apps`, `express`, `cors`, `typescript`, `tsx`, `vite`, `vite-plugin-singlefile`, `@vitejs/plugin-react`, `react`, `react-dom`, `@types/*`) の追加 — `projects/article-1/` に配置、2026-04-12 完了
 - [x] spec-001: `server.ts` で MCP サーバーを初期化し、`hello_time` ツールと UI リソースを `registerAppTool` / `registerAppResource` で登録 — `projects/article-1/server.ts` 完成、curl で initialize / tools/list / tools/call / resources/read を確認 (2026-04-12)
-- [ ] spec-001: `src/mcp-app.html` と `src/main.tsx` で最小 UI を作成し `useApp()` でホスト接続
+- [x] spec-001: `src/mcp-app.html` と `src/main.tsx` で最小 UI を作成し `useApp()` でホスト接続 — `tsconfig.json` も合わせて作成、`tsc --noEmit` で型チェック通過 (2026-04-12)
 - [ ] spec-001: `vite.config.ts` を `vite-plugin-singlefile` 構成にして `dist/mcp-app.html` を生成
 - [ ] spec-001: `basic-host` からサーバーを参照して `hello_time` の呼び出しと UI 表示を確認
 - [ ] spec-002: GitHub REST/GraphQL クライアントを実装 (未認証アクセス、rate-limit ハンドリング含む)
