@@ -16,6 +16,7 @@ import { z } from "zod";
 import { claudeProvider } from "./src/providers/claude.js";
 import { geminiProvider } from "./src/providers/gemini.js";
 import type { ProviderError } from "./src/providers/types.js";
+import { runCouncil } from "./src/council.js";
 import {
   registerOAuthRoutes,
   verifyAccessToken,
@@ -169,6 +170,117 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
           model_used: result.data.modelUsed,
           latency_ms: result.data.latencyMs,
         },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "start_council",
+    {
+      title: "Start LLM Council (ChatGPT 主催の合議)",
+      description: `Start a ChatGPT-hosted LLM council on a user question. Call this tool whenever the user asks for a "council", says "合議して" / "Claude と Gemini で議論して" / "3 モデルで話し合って", or otherwise asks for multiple LLMs to weigh in on a decision.
+
+The tool runs a 2-round synthesizer council:
+- Round 1: your own initial answer (passed in as chatgpt_initial_answer) is recorded as-is, no new API call
+- Round 2: Claude (sonnet) and Gemini (flash) are called in parallel with an independent-evaluation prompt that asks for a stance (agree/extend/partial/disagree) and a short reason
+
+The server then computes a consensus (unanimous_agree / mixed / unanimous_disagree) and returns a revision_prompt as the tool response's \`content\` field. You (ChatGPT) should read that revision_prompt and write your own Round 3 answer as your next chat message — the council never writes a final answer for you, you do.
+
+Parameters:
+- question: the user's question verbatim
+- chatgpt_initial_answer: your own first-pass answer to the question (required, non-empty). The council evaluates this answer independently.
+
+Workflow: first answer the user's question yourself concisely in the chat, then immediately invoke start_council with that same answer as chatgpt_initial_answer. When the tool returns, read the revision_prompt in the content field and write your Round 3 revised answer as your next chat message. The iframe will display the full council transcript underneath.`,
+      inputSchema: {
+        question: z.string().describe("The user's question verbatim"),
+        chatgpt_initial_answer: z
+          .string()
+          .describe(
+            "Your own initial answer to the question. Required, non-empty. The council evaluates this answer.",
+          ),
+      },
+      _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
+    },
+    async ({ question, chatgpt_initial_answer }) => {
+      if (chatgpt_initial_answer.trim() === "") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Council error (invalid_input): chatgpt_initial_answer must not be empty. Write your own initial answer first, then pass it in.",
+            },
+          ],
+          structuredContent: {
+            question,
+            chatgpt_initial_answer,
+            error: {
+              code: "invalid_input",
+              message:
+                "chatgpt_initial_answer must not be empty. Write your own initial answer first, then pass it in.",
+            },
+          },
+          isError: true,
+        };
+      }
+
+      const missingKeys: string[] = [];
+      if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+        missingKeys.push("ANTHROPIC_API_KEY");
+      }
+      if (!process.env.GOOGLE_API_KEY?.trim()) {
+        missingKeys.push("GOOGLE_API_KEY");
+      }
+      if (missingKeys.length > 0) {
+        const message = `Council requires both API keys but these are missing: ${missingKeys.join(", ")}. Set them in .env (see projects/article-4/.env.example).`;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Council error (unauthenticated): ${message}`,
+            },
+          ],
+          structuredContent: {
+            question,
+            chatgpt_initial_answer,
+            error: { code: "unauthenticated", message },
+          },
+          isError: true,
+        };
+      }
+
+      const transcript = await runCouncil(
+        { question, chatgpt_initial_answer },
+        { claude: claudeProvider, gemini: geminiProvider },
+      );
+
+      const round2 = transcript.rounds.find((r) => r.label === "round_2");
+      const providerSpeakers = round2?.speakers ?? [];
+      const allFailed =
+        providerSpeakers.length > 0 &&
+        providerSpeakers.every((s) => s.error !== undefined);
+
+      if (allFailed) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Council failed: all Round 2 speakers errored. See structuredContent.rounds[1].speakers[*].error for details. No revision prompt is available — you may retry later or continue with your initial answer.",
+            },
+          ],
+          structuredContent: transcript,
+          isError: true,
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: transcript.revision_prompt,
+          },
+        ],
+        structuredContent: transcript,
       };
     },
   );
