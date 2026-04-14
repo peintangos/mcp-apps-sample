@@ -42,7 +42,7 @@ Feature: Gemini Provider Client
 ## Implementation Steps
 
 - [x] `@google/genai` を `projects/article-4/package.json` の dependencies に追加する (`^1.50.0`、2026-04-14)
-- [ ] `.env.example` に `GOOGLE_API_KEY=` を追記し、README 相当の記載を `knowledge.md` に残す
+- [x] `.env.example` に `GOOGLE_API_KEY=` を追記し、README 相当の記載を `knowledge.md` に残す (ANTHROPIC_API_KEY ブロック直後に配置、取得元 aistudio.google.com/apikey、dotenv/config は spec-001 の時点で server.ts:1 に既設のため追加コード変更なし、2026-04-14)
 - [x] `src/providers/gemini.ts` を新規作成し、`ProviderClient` を実装する (`claude.ts` 構造ミラー、2026-04-14)
 - [x] model identifier マッピング (`"flash"` → `gemini-2.x-flash` 等 / `"pro"` → `gemini-2.x-pro` 等) を実装し、実際の model ID は実 API 疎通で確定する (仮: `gemini-2.5-flash` / `gemini-2.5-pro`、実疎通時に確定、2026-04-14)
 - [x] `GOOGLE_API_KEY` 未設定時は SDK 初期化の前に `unauthenticated` を即返すガードを入れる (`getClient()` 内、2026-04-14)

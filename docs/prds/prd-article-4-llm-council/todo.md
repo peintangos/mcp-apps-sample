@@ -12,7 +12,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-001: `server.ts` の `ask_claude` tool を `claudeProvider.ask()` 経由に書き換え、curl で port 3099 の article-4 サーバ → 実 Claude API 往復を確認 (model_used="claude-sonnet-4-6", latency_ms=2895、2026-04-14)
 - [x] spec-001: Review (build check ✅ + tsc ✅ + lint N/A + advisor 2 パス、2026-04-14)
 - [x] spec-002: `@google/genai` を依存に追加し、`src/providers/gemini.ts` に `ProviderClient` 実装を書く (`@google/genai@^1.50.0`、`ApiError.status` ベースのエラー 4 分類、`response.text` 空チェック + `modelVersion` フォールバック、tsc ✅ + vite build ✅、2026-04-14)
-- [ ] spec-002: `GOOGLE_API_KEY` を `.env.example` に追加し dotenv 経由で読み込む経路を整える
+- [x] spec-002: `GOOGLE_API_KEY` を `.env.example` に追加し dotenv 経由で読み込む経路を整える (`.env.example` に ANTHROPIC_API_KEY の直後に追加、`import "dotenv/config"` は spec-001 で server.ts:1 に既設なので追加コード変更なし、2026-04-14)
 - [ ] spec-002: Gemini flash / pro の実 API スモークテストを実施し、model ID とレイテンシを `knowledge.md` に記録する
 - [ ] spec-002: `server.ts` に `ask_gemini` tool を本番公開ツールとして登録し、curl で実 Gemini 応答が取れることを確認する
 - [ ] spec-002: Review (build check + lint + `/code-review`)

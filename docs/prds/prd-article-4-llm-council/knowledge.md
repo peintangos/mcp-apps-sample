@@ -24,7 +24,8 @@
 
 <!-- Capture cross-cutting behavior, dependencies, or setup details that are easy to forget. -->
 
-- `@google/genai` は Google AI Studio の `GOOGLE_API_KEY` で動く。Vertex AI (Google Cloud 課金) は本 PRD では扱わない
+- `@google/genai` は Google AI Studio の `GOOGLE_API_KEY` で動く。Vertex AI (Google Cloud 課金) は本 PRD では扱わない。取得元: <https://aistudio.google.com/apikey> (無料/従量枠で記事検証を完結させる前提)
+- **`.env.example` は値なしの `KEY=` のみで統一する** (2026-04-14 / spec-002 task 2): ダミー値 (`sk-ant-api03-...` 等) を placeholder として置くと "本物っぽさ" で copy-paste 事故 / 実値の紛れ込みを誘発する。Article 4 では ANTHROPIC_API_KEY / GOOGLE_API_KEY 両方とも `KEY=` の空値 template に揃えた。dotenv の読み込み経路は `server.ts:1` の `import "dotenv/config"` で spec-001 時点から既に敷かれているため、`.env.example` は値の入口を宣言するだけで機能する
 - `ANTHROPIC_API_KEY` と `GOOGLE_API_KEY` は両方必須。片方欠落時は tool handler で即時 `isError: true` を返し UI にエラー表示
 - Article 3 で導入済みの OAuth 2.1 自前実装と Fly.io 設定はコピーして使う。Article 4 独自の認可要件はない
 - Round 2 は `Promise.allSettled` で並列化。1 モデル失敗時も合議全体は継続する (FR-5)
