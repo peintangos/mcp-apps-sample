@@ -6,7 +6,7 @@ Use only these status values: `pending`, `in-progress`, `done`
 
 | Specification | Title | Status | Completed On | Notes |
 |---------------|-------|--------|--------------|-------|
-| spec-001-project-bootstrap-and-provider-abstraction | projects/article-4 bootstrap + Provider 抽象の導入 | in-progress | | 2026-04-14: rsync ベースで Article 3 から派生、MCP サーバ層の identity を Article 4 に統一。Provider 抽象導入はまだ |
+| spec-001-project-bootstrap-and-provider-abstraction | projects/article-4 bootstrap + Provider 抽象の導入 | in-progress | | 2026-04-14: bootstrap + identity rewrite + `src/providers/types.ts` 型定義まで完了。claude.ts 移植と server.ts の差し替えが残り |
 | spec-002-gemini-provider-client | Gemini Provider Client 実装 | pending | | |
 | spec-003-council-orchestrator | Synthesizer 型 3 ラウンド合議オーケストレータ | pending | | |
 | spec-004-timeline-and-single-answer-ui | タイムライン UI + 単発応答 UI (ツール別描画分岐) | pending | | |
@@ -17,4 +17,4 @@ Use only these status values: `pending`, `in-progress`, `done`
 
 - Done: 0/6
 - In progress: spec-001-project-bootstrap-and-provider-abstraction (bootstrap 完了、Provider 抽象は次タスクで着手)
-- Current focus: spec-001 — `src/providers/types.ts` の ProviderClient インターフェース定義
+- Current focus: spec-001 — `src/providers/claude.ts` に Article 3 の `src/claude.ts` 相当を `ProviderClient` 実装として移植
