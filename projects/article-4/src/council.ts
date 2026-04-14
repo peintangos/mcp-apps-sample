@@ -1,22 +1,24 @@
 /**
  * Council Orchestrator — Article 4 の中核: ChatGPT 主催の合議フロー。
  *
- * 現在の実装範囲 (spec-003 task 1-3 完了時点):
+ * 現在の実装範囲 (spec-003 task 1-4 完了時点):
  *   - Round 1: ChatGPT の初案を API 呼び出しなしで 1 speaker として記録
  *   - Round 2: Claude / Gemini に独立評価プロンプトで並列問い合わせ (`Promise.allSettled`)
  *   - `{stance, reason}` の JSON 構造化出力を `parseStanceResponse()` で parse し、
  *     コードフェンス剥がし + 4 値 stance / 非空 reason の runtime 検証を通す
  *   - 型: `Stance` / `Consensus` / `Speaker.stance?` / `CouncilTranscript.consensus`
+ *     / `CouncilTranscript.revision_prompt`
  *   - `computeConsensus(speakers)` で stance 集計 (2 人以上の成功を unanimous 判定の
  *     必須条件にする)
+ *   - `buildRevisionPrompt(transcript, consensus)` で consensus 3 分岐に応じた
+ *     Round 3 プロンプト (自然言語日本語) を生成
  *   - parse 失敗時: `content` は原文のまま残し `error.code = invalid_response`、
  *     stance は undefined のため consensus 計算から除外される
  *   - `total_latency_ms` は Round 1-2 全体の経過時間
  *
  * 次タスク以降で段階的に拡張される:
- *   - spec-003 task 4: `buildRevisionPrompt(transcript, consensus)` を追加し、
- *     `CouncilTranscript.revision_prompt` を埋める
  *   - spec-003 task 5: `start_council` tool を server.ts に登録
+ *     (`CouncilTranscript` を `structuredContent` に、`revision_prompt` を `content` に)
  *
  * Round 3 (改訂案) はサーバーで生成しない — ChatGPT 本人が tool 応答の `content` を
  * 読んで次の発話として改訂案を書く。これが "案 B" の核心で、`runCouncil()` には
@@ -85,6 +87,12 @@ export type CouncilTranscript = {
   rounds: Round[];
   /** Round 2 の stance 集計から導出する合議の全体合意度 */
   consensus: Consensus;
+  /**
+   * ChatGPT が tool 応答を読んで "Round 3 (改訂案)" を書くためのプロンプト。
+   * consensus 3 分岐に応じて命令部分を切り替え、Round 1-2 の要点を引用する。
+   * tool handler がこれを MCP 応答の `content` フィールドに埋める想定。
+   */
+  revision_prompt: string;
   /** Round 1-2 を通した wall-clock time。Round 2 の並列効果がそのまま現れる */
   total_latency_ms: number;
 };
@@ -127,6 +135,92 @@ export function computeConsensus(speakers: Speaker[]): Consensus {
   if (allDisagree) return "unanimous_disagree";
 
   return "mixed";
+}
+
+const STANCE_LABEL: Record<Stance, string> = {
+  agree: "同意",
+  extend: "同意 + 補足",
+  partial: "部分同意",
+  disagree: "不同意",
+};
+
+const SPEAKER_LABEL: Record<SpeakerName, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+};
+
+function formatSpeakerQuote(
+  speaker: Speaker & { stance: Stance; content: string },
+): string {
+  const name = SPEAKER_LABEL[speaker.name];
+  const stance = STANCE_LABEL[speaker.stance];
+  return `【${name} / stance: ${stance}】\n${speaker.content}`;
+}
+
+/**
+ * consensus 3 分岐に応じて、ChatGPT が Round 3 (改訂案) を書くためのプロンプトを生成する。
+ *
+ * 設計指針 (spec-003 technical notes):
+ *   - ChatGPT が tool 応答を読んで「次の発話として改訂案を書きたくなる」導線を作る
+ *   - 命令形 + Round 1-2 の要点引用 + 期待フォーマット の 3 要素を必ず含む
+ *   - consensus に応じて命令部分を切り替えるのが肝
+ *   - 生成物は自然言語の日本語 (JSON や schema ではない) — `content` は ChatGPT が
+ *     プロンプト継続として解釈するため
+ *
+ * Round 2 の引用対象は `stance !== undefined` かつ `content !== undefined` の speaker
+ * のみ (parse 失敗や provider エラーで stance が無い speaker は除外)。
+ */
+export function buildRevisionPrompt(
+  transcript: CouncilTranscript,
+  consensus: Consensus,
+): string {
+  const round2 = transcript.rounds.find((r) => r.label === "round_2");
+  const availableSpeakers = (round2?.speakers ?? []).filter(
+    (s): s is Speaker & { stance: Stance; content: string } =>
+      s.stance !== undefined && s.content !== undefined,
+  );
+  const round2QuotesBlock = availableSpeakers.length
+    ? availableSpeakers.map(formatSpeakerQuote).join("\n\n")
+    : "(Round 2 の有効な発言はありませんでした)";
+
+  const round1Block = `【ChatGPT の初案】\n${transcript.chatgpt_initial_answer}`;
+
+  const headerByConsensus: Record<Consensus, string> = {
+    unanimous_agree: [
+      "【合議結果: 全員が初案に同意】",
+      "他 2 モデルも初案の結論に同意しました。改訂は原則不要です。",
+      "ただし Round 2 で補足視点 (extend) が出ている場合は、1〜2 行だけあなたの回答に追記してください。",
+      "補足が無ければ「合議の結果、改訂は不要と判断しました」と一言添えて初案をそのまま提示してください。",
+    ].join("\n"),
+    mixed: [
+      "【合議結果: 意見が割れた】",
+      "Round 2 で Claude / Gemini の見解が分かれました。以下の論点を踏まえて、初案を改訂してください。",
+      "同意された部分は維持し、異論・補足は本文に織り込み、最終的な結論を明確に示してください。",
+    ].join("\n"),
+    unanimous_disagree: [
+      "【合議結果: 全員が初案に不同意】",
+      "他 2 モデルとも初案に重大な問題を指摘しています。根本から書き直してください。",
+      "Round 2 で示された論点を踏まえ、初案の前提や結論を見直した上で、あらためて回答を組み立ててください。",
+    ].join("\n"),
+  };
+
+  const tailInstruction = [
+    "──",
+    "次の発話として、上記を踏まえたあなたの Round 3 (改訂版) 回答を日本語で提示してください。",
+    "回答本文のみで十分です (合議過程の再説明は不要)。",
+  ].join("\n");
+
+  return [
+    headerByConsensus[consensus],
+    "",
+    round1Block,
+    "",
+    "【Round 2 の独立評価】",
+    round2QuotesBlock,
+    "",
+    tailInstruction,
+  ].join("\n");
 }
 
 function buildRound2Prompt(input: CouncilInput): string {
@@ -291,11 +385,19 @@ export async function runCouncil(
     ].map(applyStanceParsing),
   };
 
-  return {
+  const consensus = computeConsensus(round2.speakers);
+
+  // revision_prompt は transcript に自己参照なので先に partial transcript を作る
+  const partial: Omit<CouncilTranscript, "revision_prompt"> = {
     question: input.question,
     chatgpt_initial_answer: input.chatgpt_initial_answer,
     rounds: [round1, round2],
-    consensus: computeConsensus(round2.speakers),
+    consensus,
     total_latency_ms: Date.now() - start,
   };
+  const revisionPrompt = buildRevisionPrompt(
+    { ...partial, revision_prompt: "" },
+    consensus,
+  );
+  return { ...partial, revision_prompt: revisionPrompt };
 }

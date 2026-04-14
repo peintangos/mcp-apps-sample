@@ -106,14 +106,14 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
   - 利用可能な speaker が 2 人以上 かつ 全員 `disagree` → `unanimous_disagree`
   - それ以外 (mixed / 部分失敗 / parse 失敗) → `mixed`
   (型ガード `(s): s is Speaker & { stance: Stance } => s.stance !== undefined` で `withStance` を narrow してから `.every()` で判定、`runCouncil()` の return 部分で `computeConsensus(round2.speakers)` を呼ぶ、task 3 で stance parse が実装されるまで実行時は常に `"mixed"` を返す、2026-04-15)
-- [ ] `buildRevisionPrompt(transcript, consensus)` ヘルパーを実装し、consensus に応じて 3 種類の改訂指示文を生成する
+- [x] `buildRevisionPrompt(transcript, consensus)` ヘルパーを実装し、consensus に応じて 3 種類の改訂指示文を生成する (pure function として実装、`CouncilTranscript.revision_prompt: string` を必須フィールドに追加、`headerByConsensus` で 3 分岐 (unanimous_agree=改訂不要誘導 / mixed=論点踏まえ改訂 / unanimous_disagree=根本書き直し)、Round 1 初案 + Round 2 available speakers の引用 (`stance !== undefined && content !== undefined` で filter) + 「次の発話として改訂案を日本語で」の tail instruction、`formatSpeakerQuote` helper で `【Claude / stance: 同意 + 補足】content` 形式に整形、unit smoke 4/4 pass (3 分岐 + zero-available edge case)、2026-04-15)
 - [ ] tool 応答の `content` フィールドに `buildRevisionPrompt` の出力を埋め込む。`structuredContent` には `CouncilTranscript` (`stance` / `consensus` / `revision_prompt` も含む) をそのまま入れる
 - [ ] `start_council` ツールの zod schema (`question` / `chatgpt_initial_answer` 必須、`models` 任意) を定義して server.ts に登録する
 - [ ] tool handler 側で API キー存在確認・`chatgpt_initial_answer` 空文字チェックを行い、問題があれば `isError: true` で `structuredContent.error` を返す
 - [ ] `ask_claude` / `ask_gemini` は spec-001 / spec-002 で登録済みの本番公開ツールとしてそのまま残す。`start_council` は 3 本目のツールとして追加する
 - [ ] curl で `start_council` を叩き、Round 1-2 の JSON 構造、`stance` / `consensus` フィールド、`content` に埋まる consensus 分岐済み改訂指示文が FR-3 / FR-6 の形で返ることを確認する
 - [ ] mock テストを追加: (a) unanimous_agree ケース、(b) mixed ケース、(c) unanimous_disagree ケース、(d) 部分失敗ケース、(e) 両方失敗ケース、(f) stance parse 失敗ケース
-- [ ] `revision_prompt` の 3 系統の例を `knowledge.md` に記録する (将来のチューニング用)
+- [x] `revision_prompt` の 3 系統の例を `knowledge.md` に記録する (将来のチューニング用) (unanimous_agree / mixed / unanimous_disagree の header 部分 3 系統 + 共通構造 (header + 初案引用 + Round 2 引用 + tail instruction) を `knowledge.md` のリファレンスセクションに追記、unit smoke 4 ケースで 324〜540 chars の出力を確認済み、2026-04-15)
 - [ ] Review (build check + lint + `/code-review`)
 
 ## Technical Notes
