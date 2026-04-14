@@ -47,8 +47,8 @@ Feature: Gemini Provider Client
 - [x] model identifier マッピング (`"flash"` → `gemini-2.x-flash` 等 / `"pro"` → `gemini-2.x-pro` 等) を実装し、実際の model ID は実 API 疎通で確定する (仮: `gemini-2.5-flash` / `gemini-2.5-pro`、実疎通時に確定、2026-04-14)
 - [x] `GOOGLE_API_KEY` 未設定時は SDK 初期化の前に `unauthenticated` を即返すガードを入れる (`getClient()` 内、2026-04-14)
 - [x] SDK のエラーを HTTP status またはエラー名で 3 分類 (`rate_limited` / `unauthenticated` / `invalid_response`) に振り分ける (`ApiError instanceof` + `.status` 分岐、4xx は `invalid_response` に集約、2026-04-14)
-- [ ] 実 API スモークテスト: `geminiProvider.ask("1+1 は?", { model: "flash" })` と `geminiProvider.ask("Rust と Go どちらを学ぶべきか", { model: "pro" })` を実行して model ID / レイテンシ / 応答先頭を `knowledge.md` に記録する
-- [ ] Claude と Gemini を同じテストハーネスで並列呼び出しし、両 Provider が `ProviderClient` として同じ形で扱えることを確認する
+- [x] 実 API スモークテスト: `geminiProvider.ask("1+1 は?", { model: "flash" })` と `geminiProvider.ask("Rust と Go どちらを学ぶべきか", { model: "pro" })` を実行して model ID / レイテンシ / 応答先頭を `knowledge.md` に記録する (`gemini-2.5-flash` 1657-3138ms、`gemini-2.5-pro` 8111ms、`response.modelVersion` 実値取得、pro は初回 503 "high demand" 揺らぎあり → 即再試行で成功、2026-04-14)
+- [x] Claude と Gemini を同じテストハーネスで並列呼び出しし、両 Provider が `ProviderClient` として同じ形で扱えることを確認する (一時 `smoke-gemini.ts` で `Promise.all` 並列実行、3 ケースが `Result<ProviderResponse>` 形式で統一されて帰ってくることを確認、スクリプトは実行後削除、2026-04-14)
 - [ ] `server.ts` に `ask_gemini` tool を登録する。schema は `ask_claude` と対称 (`{ question, chatgpt_answer?, model? }`)、`model` は `"flash" | "pro"`。handler は `geminiProvider.ask()` を呼び、結果を `structuredContent` に入れる
 - [ ] Article 3 の `AnswerColumn` 相当の単発応答 UI を `ask_gemini` にも流用できるよう、UI 共通化の段取りを `knowledge.md` に残す (実装は spec-004 で)
 - [ ] curl で `ask_gemini` を叩き、実 Gemini 応答が `structuredContent` に入ることを確認する
