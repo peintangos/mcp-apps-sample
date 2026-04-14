@@ -91,10 +91,10 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
 
 ## Implementation Steps
 
-- [ ] `src/council.ts` を新規作成し、`runCouncil(input, providers): Promise<CouncilTranscript>` を実装する
-- [ ] `CouncilTranscript` / `Round` / `Speaker` / `Stance` / `Consensus` の型定義を `src/council.ts` に置き、server.ts から import する (`final_answer` は持たない、`Speaker.stance?` と `CouncilTranscript.consensus` を持つ)
+- [x] `src/council.ts` を新規作成し、`runCouncil(input, providers): Promise<CouncilTranscript>` を実装する (スケルトン: Round 1 passthrough + Round 2 `Promise.allSettled` 並列呼び出し + `settledToSpeaker` ヘルパーで rejected/Result.ok 両枝を吸収、`total_latency_ms` は `Date.now()` ベース、tsc ✅ + vite build ✅、2026-04-15)
+- [ ] `CouncilTranscript` / `Round` / `Speaker` / `Stance` / `Consensus` の型定義を `src/council.ts` に置き、server.ts から import する (`final_answer` は持たない、`Speaker.stance?` と `CouncilTranscript.consensus` を持つ) (**進捗**: 今タスクで `CouncilTranscript` / `Round` / `Speaker` / `SpeakerName` / `RoundLabel` / `CouncilInput` / `CouncilProviders` を定義、`final_answer` を一切持たない方針を確定。残: `Stance` / `Consensus` は次タスク、server.ts import は task 5 で実施、2026-04-15)
 - [ ] `Stance = "agree" | "extend" | "partial" | "disagree"` と `Consensus = "unanimous_agree" | "mixed" | "unanimous_disagree"` を enum として定義する
-- [ ] Round 1 は `chatgpt_initial_answer` をそのまま 1 speaker として記録する (新規 API 呼び出しなし、`stance` は undefined)
+- [x] Round 1 は `chatgpt_initial_answer` をそのまま 1 speaker として記録する (新規 API 呼び出しなし、`stance` は undefined) (`runCouncil()` 内の round1 生成箇所で実装、`{ name: "chatgpt", content: input.chatgpt_initial_answer }` のみ、API 呼び出しゼロ、2026-04-15)
 - [ ] Round 2 のプロンプトを「批判」ではなく「独立評価」指向で設計する。必ず「同意も正当な出力であり、欠点を無理に捻り出す必要はない」と明示する
 - [ ] Round 2 の構造化出力フォーマットを指定する (JSON モード または強い「以下の形式で答えよ」プロンプト): `{ "stance": "agree|extend|partial|disagree", "reason": "..." }`
 - [ ] Round 2 は Claude / Gemini に `{ question, chatgpt_initial_answer }` をコンテキスト付きで渡し、`Promise.allSettled` で並列実行する
