@@ -1,0 +1,62 @@
+# spec-002: Gemini Provider Client 実装 + `ask_gemini` ツール公開
+
+## Overview
+
+`@google/genai` (Google AI Studio 版) を使って `src/providers/gemini.ts` に `ProviderClient` 実装を追加する。`GOOGLE_API_KEY` を dotenv 経由で読み込み、Gemini flash / pro の model identifier をマッピングし、Claude Provider と同じ `Result<ProviderResponse>` 形式で応答を返す。続いて `ask_gemini` tool を server.ts に **本番公開ツール** として登録する (schema は `ask_claude` と対称: `{ question, chatgpt_answer?, model? }`)。
+
+## Acceptance Criteria
+
+```gherkin
+Feature: Gemini Provider Client
+
+  Background:
+    spec-001 が完了し、`ProviderClient` 抽象が存在する
+    `GOOGLE_API_KEY` が Google AI Studio で取得できる
+
+  Scenario: Gemini flash で応答を取得する
+    Given `geminiProvider.ask("1+1 は?", { model: "flash" })` を呼ぶ
+    When Gemini API が呼ばれる
+    Then `Result<ProviderResponse>` の `ok: true` が返る
+    And `data.text` に自然言語の回答が入る
+    And `data.modelUsed` に Gemini flash の正式な model ID が入る
+    And `data.latencyMs` にリクエスト所要時間が入る
+
+  Scenario: Gemini pro でモデル切り替え
+    Given `geminiProvider.ask("X", { model: "pro" })` を呼ぶ
+    When Gemini API が呼ばれる
+    Then Gemini pro 系の model が呼ばれる
+    And `data.modelUsed` が pro 系の model ID になる
+
+  Scenario: API キー未設定エラー
+    Given `GOOGLE_API_KEY` が未設定
+    When `geminiProvider.ask(...)` を呼ぶ
+    Then `Result<T>` の `ok: false` 分岐が返り、`error.code` が `"unauthenticated"` になる
+
+  Scenario: 400 系応答は invalid_response として扱う
+    Given Gemini API が 400 系のエラーを返した
+    When `geminiProvider.ask(...)` を呼ぶ
+    Then `error.code` が `"invalid_response"` として返る
+    And `error.message` に元のエラー内容が含まれる
+```
+
+## Implementation Steps
+
+- [ ] `@google/genai` を `projects/article-4/package.json` の dependencies に追加する
+- [ ] `.env.example` に `GOOGLE_API_KEY=` を追記し、README 相当の記載を `knowledge.md` に残す
+- [ ] `src/providers/gemini.ts` を新規作成し、`ProviderClient` を実装する
+- [ ] model identifier マッピング (`"flash"` → `gemini-2.x-flash` 等 / `"pro"` → `gemini-2.x-pro` 等) を実装し、実際の model ID は実 API 疎通で確定する
+- [ ] `GOOGLE_API_KEY` 未設定時は SDK 初期化の前に `unauthenticated` を即返すガードを入れる
+- [ ] SDK のエラーを HTTP status またはエラー名で 3 分類 (`rate_limited` / `unauthenticated` / `invalid_response`) に振り分ける
+- [ ] 実 API スモークテスト: `geminiProvider.ask("1+1 は?", { model: "flash" })` と `geminiProvider.ask("Rust と Go どちらを学ぶべきか", { model: "pro" })` を実行して model ID / レイテンシ / 応答先頭を `knowledge.md` に記録する
+- [ ] Claude と Gemini を同じテストハーネスで並列呼び出しし、両 Provider が `ProviderClient` として同じ形で扱えることを確認する
+- [ ] `server.ts` に `ask_gemini` tool を登録する。schema は `ask_claude` と対称 (`{ question, chatgpt_answer?, model? }`)、`model` は `"flash" | "pro"`。handler は `geminiProvider.ask()` を呼び、結果を `structuredContent` に入れる
+- [ ] Article 3 の `AnswerColumn` 相当の単発応答 UI を `ask_gemini` にも流用できるよう、UI 共通化の段取りを `knowledge.md` に残す (実装は spec-004 で)
+- [ ] curl で `ask_gemini` を叩き、実 Gemini 応答が `structuredContent` に入ることを確認する
+- [ ] Review (build check + lint + `/code-review`)
+
+## Technical Notes
+
+- Google AI Studio の無料枠で記事検証を完結させることを前提にする (Vertex AI は Out of Scope)
+- Gemini の SDK は messages 配列の組み立て方が Anthropic と異なる。`ProviderClient.ask()` 側で吸収し、呼び出し側 (council.ts) には差分を見せない
+- `max_tokens` 相当のパラメータ名は SDK ごとに異なるため、`ProviderClient` 内で `maxOutputTokens` として統一する
+- model identifier の正式名は API ドキュメントで最新を確認して確定する (PRD 執筆時点のハードコードに依存しない)

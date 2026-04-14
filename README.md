@@ -7,6 +7,7 @@ This repository hosts MCP Apps demo projects backing a Zenn article series, buil
 - [`prd-article-1-github-dashboard`](./docs/prds/prd-article-1-github-dashboard/prd.md) — Article 1: Build a GitHub repository dashboard MCP App and publish the introductory Zenn article (draft complete)
 - [`prd-article-2-langgraph-sql`](./docs/prds/prd-article-2-langgraph-sql/prd.md) — Article 2: LangGraph × MCP Apps × human-in-the-loop SQL approval (starts after Article 1)
 - [`prd-article-3-claude-second-opinion`](./docs/prds/prd-article-3-claude-second-opinion/prd.md) — Article 3: ChatGPT × Claude Second Opinion MCP App (planned, parallelizable with Article 2)
+- [`prd-article-4-llm-council`](./docs/prds/prd-article-4-llm-council/prd.md) — Article 4: ChatGPT 主催の LLM 合議 MCP App (Article 3 の発展、Synthesizer 型 3 ラウンド合議)
 
 Article outlines are stored in [`docs/references/article-outlines/`](./docs/references/article-outlines/).
 

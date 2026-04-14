@@ -16,13 +16,15 @@ This repository (`mcp-apps-sample`) hosts MCP Apps demo projects that back a Zen
 |-----|-------|--------|----------------|
 | [`prd-article-1-github-dashboard`](./prds/prd-article-1-github-dashboard/prd.md) | Article 1 — GitHub Dashboard MCP App + Zenn Article | draft 完成、公開待ち | 2026-04 to 2026-05 |
 | [`prd-article-2-langgraph-sql`](./prds/prd-article-2-langgraph-sql/prd.md) | Article 2 — LangGraph × MCP Apps × Human-in-the-loop SQL approval | planned (Article 1 公開後に着手) | 2026-05 to 2026-06 |
-| [`prd-article-3-claude-second-opinion`](./prds/prd-article-3-claude-second-opinion/prd.md) | Article 3 — ChatGPT × Claude Second Opinion MCP App | planned (Article 1 公開後に着手、Article 2 と並行可) | 2026-07 to 2026-08 |
+| [`prd-article-3-claude-second-opinion`](./prds/prd-article-3-claude-second-opinion/prd.md) | Article 3 — ChatGPT × Claude Second Opinion MCP App | in-progress (spec-001〜006 実装済み、Zenn 記事公開待ち) | 2026-04 to 2026-05 |
+| [`prd-article-4-llm-council`](./prds/prd-article-4-llm-council/prd.md) | Article 4 — ChatGPT 主催の LLM 合議 MCP App | planned (Article 3 完了後に着手) | 2026-04 to 2026-05 |
 
 Planned article series:
 
 1. **Article 1 — MCP Apps 入門**: 初見読者向け。Claude Desktop 内で自作 GitHub 分析ダッシュボードを動かすまで
 2. **Article 2 — LangGraph × MCP Apps**: LangGraph 経験者向け。自作ホスト + OpenRouter + LangSmith で副作用承認エージェントを作る
 3. **Article 3 — ChatGPT × Claude Second Opinion**: "LLM どうしの越境" をテーマに、ChatGPT の中で `ask_claude` ツールを呼んで Claude と ChatGPT の回答を side-by-side 比較する MCP App を作る
+4. **Article 4 — ChatGPT 主催の LLM 合議**: Article 3 の発展。`start_council` ツールで ChatGPT 初案 → Claude/Gemini 並列批判 → Claude synthesizer による改訂案、という Synthesizer 型 3 ラウンド合議を回し、タイムライン UI で差分まで見せる
 
 ## Future Ideas
 
