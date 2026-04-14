@@ -26,7 +26,11 @@ const MODEL_MAP = {
 
 export type GeminiModel = keyof typeof MODEL_MAP;
 
-const DEFAULT_MAX_TOKENS = 1024;
+// gemini-2.5-pro は AUTOMATIC thinking budget を使い、thinking トークンも
+// maxOutputTokens の配分に含まれる。`response.text` は thought parts を除外する
+// 仕様のため、1024 だと pro のときに thinking だけで使い切って visible text が
+// 空 (= `invalid_response`) になる。Claude の 1024 より広めに取る必要がある。
+const DEFAULT_MAX_TOKENS = 4096;
 
 let cachedClient: GoogleGenAI | null = null;
 

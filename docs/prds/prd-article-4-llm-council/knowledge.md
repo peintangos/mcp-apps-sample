@@ -56,6 +56,8 @@
 - **tool 応答の `content` フィールドは ChatGPT のプロンプト継続とみなされる**: `content` に埋める改訂指示は命令形 + Round 1-2 要点引用 + 期待フォーマットの 3 要素で構成する
 - **単独 speaker の unanimous を名乗らない**: Round 2 で 1 モデルしか成功しなかった場合、その 1 人だけで `unanimous_agree` を名乗ると事実誤認を誘発する。`computeConsensus` は 2 人以上の成功を unanimous 判定の必須条件にする
 - Gemini のトークン上限と Anthropic のトークン上限は異なる。`max_tokens` の下限合わせは `council.ts` 側で吸収する
+- **Gemini 2.5 pro の thinking トークンが `maxOutputTokens` の配分を食い潰す** (2026-04-14 / spec-002 task 9 / ask_gemini curl 疎通中に発覚): `gemini-2.5-pro` は AUTOMATIC thinking budget で thinking トークンを生成するが、これは `maxOutputTokens` の枠内から消費される。一方 `response.text` getter は **thought parts を除外する仕様** なので、`maxOutputTokens=1024` だと短い質問でも thinking だけで使い切って visible text が空になり、`ask_gemini` が `invalid_response: "Gemini returned no text in the response."` を返す。再現手順は "Rust の最大の長所を 40 字以内で 1 つ挙げて" を pro で叩くだけ。対策として `gemini.ts` の `DEFAULT_MAX_TOKENS` を Claude の 1024 と分離して **4096** に引き上げた (claude.ts 側は 1024 のまま)。Provider ごとに safe なデフォルトが違うという事実を設計に反映。council.ts 側でこの定数を上書きしたくなったら `options.maxOutputTokens` で per-call 指定できる
+- **Gemini pro + thinking のレイテンシは sonnet/flash の 10 倍級** (2026-04-14 / 実測): `ask_gemini pro` の 1 往復が 15187ms (thinking AUTOMATIC)。smoke の 8111ms と比べてさらに長いのは質問文が短く AUTOMATIC budget が "どこまで考えるか" を自分で決めた結果と推測。合議では Round 1-2 を **必ず並列化** しないと UX が壊れる (pro 15s + flash 2s + sonnet 1.5s を sequential で走らせると 18s、parallel なら 15s)。spec-003 の `Promise.allSettled` 設計はこの実測値が根拠
 - ChatGPT の tool call で `chatgpt_initial_answer` を取りこぼすケースがあると合議が成立しない → input schema で `required` にし、handler で空文字チェック
 - `ask_claude` / `ask_gemini` には改訂誘導ロジックは一切持たせない (合議専用機能の漏れ込みを防ぐ)
 

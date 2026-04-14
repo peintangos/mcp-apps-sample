@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { z } from "zod";
 import { claudeProvider } from "./src/providers/claude.js";
+import { geminiProvider } from "./src/providers/gemini.js";
 import type { ProviderError } from "./src/providers/types.js";
 import {
   registerOAuthRoutes,
@@ -106,6 +107,65 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
         structuredContent: {
           question,
           claude_answer: result.data.text,
+          model_used: result.data.modelUsed,
+          latency_ms: result.data.latencyMs,
+        },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "ask_gemini",
+    {
+      title: "Ask Gemini (second opinion)",
+      description: `Get a second opinion from Gemini (Google). Call this tool whenever the user asks for a "second opinion" from Gemini, says "Gemini にも聞いて" / "Gemini に相談" / "Gemini と比較", asks "Google のモデルはどう思う?", or otherwise signals they want Gemini's view on something.
+
+The tool forwards the question to Gemini via the Google AI Studio API and renders Gemini's answer as a rich Markdown card inside the chat. Your own answer to the user is already shown in the regular chat message above the iframe, so you do NOT need to duplicate it inside the tool.
+
+Parameters:
+- question: the question to forward (pass the user's original question verbatim)
+- model: "flash" (default, fast and cheap) or "pro" (slower but deeper) — pick based on how hard the question is
+
+Workflow: first answer the user's question yourself concisely in the chat, then immediately invoke this tool in the same turn. The iframe will render Gemini's independent view underneath.`,
+      inputSchema: {
+        question: z.string().describe("The question to forward to Gemini"),
+        model: z
+          .enum(["flash", "pro"])
+          .optional()
+          .describe("Which Gemini model to use. Defaults to flash."),
+      },
+      _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
+    },
+    async ({ question, model }) => {
+      const result = await geminiProvider.ask(question, { model });
+
+      const errorResult = (error: ProviderError) => ({
+        content: [
+          {
+            type: "text" as const,
+            text: `Gemini API error (${error.code}): ${error.message}`,
+          },
+        ],
+        structuredContent: {
+          question,
+          error,
+        },
+        isError: true,
+      });
+
+      if (!result.ok) return errorResult(result.error);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: result.data.text,
+          },
+        ],
+        structuredContent: {
+          question,
+          gemini_answer: result.data.text,
           model_used: result.data.modelUsed,
           latency_ms: result.data.latencyMs,
         },
