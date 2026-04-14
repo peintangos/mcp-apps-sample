@@ -95,11 +95,11 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
 - [ ] `CouncilTranscript` / `Round` / `Speaker` / `Stance` / `Consensus` の型定義を `src/council.ts` に置き、server.ts から import する (`final_answer` は持たない、`Speaker.stance?` と `CouncilTranscript.consensus` を持つ) (**進捗**: task 1 で orchestrator 骨格型、task 2 で `Stance` / `Consensus` と `Speaker.stance?` / `CouncilTranscript.consensus` を追加。残: server.ts 側の import は task 5 で実施、2026-04-15)
 - [x] `Stance = "agree" | "extend" | "partial" | "disagree"` と `Consensus = "unanimous_agree" | "mixed" | "unanimous_disagree"` を enum として定義する (string literal union として定義、`Speaker.stance?: Stance` / `CouncilTranscript.consensus: Consensus` を既存型に追加、`computeConsensus(speakers)` ヘルパーを実装 (2 人以上の成功を unanimous 判定の必須条件、stance を持つ speaker を型ガードで narrowing)、`runCouncil()` 内で Round 2 の speakers を渡して計算、tsc ✅ + vite build ✅、2026-04-15)
 - [x] Round 1 は `chatgpt_initial_answer` をそのまま 1 speaker として記録する (新規 API 呼び出しなし、`stance` は undefined) (`runCouncil()` 内の round1 生成箇所で実装、`{ name: "chatgpt", content: input.chatgpt_initial_answer }` のみ、API 呼び出しゼロ、2026-04-15)
-- [ ] Round 2 のプロンプトを「批判」ではなく「独立評価」指向で設計する。必ず「同意も正当な出力であり、欠点を無理に捻り出す必要はない」と明示する
-- [ ] Round 2 の構造化出力フォーマットを指定する (JSON モード または強い「以下の形式で答えよ」プロンプト): `{ "stance": "agree|extend|partial|disagree", "reason": "..." }`
-- [ ] Round 2 は Claude / Gemini に `{ question, chatgpt_initial_answer }` をコンテキスト付きで渡し、`Promise.allSettled` で並列実行する
-- [ ] 各 speaker のレスポンスを parse し、stance を抽出する。parse 失敗時は `error.code = "invalid_response"` にする
-- [ ] 各 speaker の失敗時 (`Result.ok === false`) は `error` を speaker に入れ、round 自体は続行する
+- [x] Round 2 のプロンプトを「批判」ではなく「独立評価」指向で設計する。必ず「同意も正当な出力であり、欠点を無理に捻り出す必要はない」と明示する (`buildRound2Prompt()` に独立評価指示 + 4 値 stance 説明 + 「批判を求めていない、同意も正当」を明記、2026-04-15)
+- [x] Round 2 の構造化出力フォーマットを指定する (JSON モード または強い「以下の形式で答えよ」プロンプト): `{ "stance": "agree|extend|partial|disagree", "reason": "..." }` (strict JSON prompt に literal example `{"stance": "agree", "reason": "..."}` を含め、SDK native structured output は `ProviderClient` loose abstraction を壊すので不採用、2026-04-15)
+- [x] Round 2 は Claude / Gemini に `{ question, chatgpt_initial_answer }` をコンテキスト付きで渡し、`Promise.allSettled` で並列実行する (task 1 で並列化済み、task 3 で prompt に `chatgpt_initial_answer` を渡す経路を実装、E2E で 5985ms の並列実行を実測、2026-04-15)
+- [x] 各 speaker のレスポンスを parse し、stance を抽出する。parse 失敗時は `error.code = "invalid_response"` にする (`parseStanceResponse()` 実装 = JSON.parse → markdown fence 剥がし → 4 値 stance + 非空 reason の runtime 検証、`applyStanceParsing()` で speakers に `.map()` 適用、parse 失敗時は `content` に原文を残し `error: invalid_response` を追加、unit smoke 8/8 pass + 実 API で claude/gemini 両方から parseable JSON を取得確認、2026-04-15)
+- [x] 各 speaker の失敗時 (`Result.ok === false`) は `error` を speaker に入れ、round 自体は続行する (task 1 の `settledToSpeaker()` で実装済み、`Promise.allSettled` で Round 自体は継続、2026-04-15)
 - [ ] Round 2 の両方が失敗した場合は `CouncilTranscript` を完成させつつ tool 応答を `isError: true` で返す
 - [x] `computeConsensus(speakers): Consensus` ヘルパーを実装する。ロジック:
   - 利用可能な speaker が 2 人以上 かつ 全員 `agree` / `extend` のみ → `unanimous_agree`

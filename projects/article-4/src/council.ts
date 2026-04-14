@@ -1,21 +1,22 @@
 /**
  * Council Orchestrator — Article 4 の中核: ChatGPT 主催の合議フロー。
  *
- * 現在の実装範囲 (spec-003 task 1-2 完了時点):
+ * 現在の実装範囲 (spec-003 task 1-3 完了時点):
  *   - Round 1: ChatGPT の初案を API 呼び出しなしで 1 speaker として記録
- *   - Round 2: Claude / Gemini に並列問い合わせ (`Promise.allSettled`)、結果を Speaker に詰める
- *   - 型: `Stance` / `Consensus` / `Speaker.stance?` / `CouncilTranscript.consensus` を定義
- *   - `computeConsensus(speakers)` ヘルパーで stance 集計 (2 人以上の成功を
- *     unanimous 判定の必須条件にする)
+ *   - Round 2: Claude / Gemini に独立評価プロンプトで並列問い合わせ (`Promise.allSettled`)
+ *   - `{stance, reason}` の JSON 構造化出力を `parseStanceResponse()` で parse し、
+ *     コードフェンス剥がし + 4 値 stance / 非空 reason の runtime 検証を通す
+ *   - 型: `Stance` / `Consensus` / `Speaker.stance?` / `CouncilTranscript.consensus`
+ *   - `computeConsensus(speakers)` で stance 集計 (2 人以上の成功を unanimous 判定の
+ *     必須条件にする)
+ *   - parse 失敗時: `content` は原文のまま残し `error.code = invalid_response`、
+ *     stance は undefined のため consensus 計算から除外される
  *   - `total_latency_ms` は Round 1-2 全体の経過時間
  *
  * 次タスク以降で段階的に拡張される:
- *   - spec-003 task 3: Round 2 プロンプトを stance-based 独立評価形に書き換え、
- *     `{stance, reason}` の構造化出力を parse して Speaker.stance に入れる
- *     (task 2 時点では Round 2 の Speaker.stance は常に undefined なので、
- *     `computeConsensus` は必ず `"mixed"` を返す。task 3 で初めて他分岐が有効化)
  *   - spec-003 task 4: `buildRevisionPrompt(transcript, consensus)` を追加し、
  *     `CouncilTranscript.revision_prompt` を埋める
+ *   - spec-003 task 5: `start_council` tool を server.ts に登録
  *
  * Round 3 (改訂案) はサーバーで生成しない — ChatGPT 本人が tool 応答の `content` を
  * 読んで次の発話として改訂案を書く。これが "案 B" の核心で、`runCouncil()` には
@@ -93,7 +94,12 @@ export type CouncilProviders = {
   gemini: ProviderClient;
 };
 
-const ROUND_2_MAX_TOKENS = 512;
+// NOTE: spec-003 technical note は `maxOutputTokens: 512` を目安としていたが、
+// 実 API 疎通 (spec-003 task 3) で Gemini 2.5 flash が hidden thinking トークンを
+// 使い始めて 512 では JSON 出力が truncate されることが判明した (spec-002 で
+// gemini-2.5-pro について観測した現象と同根)。council.ts では `maxOutputTokens` を
+// override せず、各 provider の `DEFAULT_MAX_TOKENS` (Claude 1024 / Gemini 4096) を
+// 使う。provider 固有の safe 値は provider 自身が知っているべき、という設計判断。
 
 /**
  * Round 2 speakers から合議の consensus を計算する。
@@ -125,15 +131,115 @@ export function computeConsensus(speakers: Speaker[]): Consensus {
 
 function buildRound2Prompt(input: CouncilInput): string {
   return [
-    "あなたは第三者の立場で独立した見解を示してください。",
-    "ChatGPT がすでに初案を提示しています。あなた自身の知識と判断で 150 字以内で見解を述べ、",
-    "同意する部分があれば明示し、異なる観点があればそれも端的に示してください。",
+    "あなたは ChatGPT 主催の合議に参加する独立評価者です。",
+    "ChatGPT が以下の質問に対する初案を提示しました。あなたはこの初案を第三者の立場で独立評価してください。",
     "",
+    "【重要】これは『批判』を求めるプロンプトではありません。同意も正当な出力です。",
+    "初案に同意する箇所があれば素直に同意を表明してください。欠点を無理に捻り出す必要はありません。",
+    "逆に重要な論点が抜けていたり誤りがあれば、端的に指摘してください。",
+    "",
+    "次の 4 値のいずれかで初案に対する立場 (stance) を示してください:",
+    "- agree: 初案に同意。大きな修正は不要",
+    "- extend: 初案に同意した上で補足視点を追加",
+    "- partial: 初案の一部に同意、一部に異論あり",
+    "- disagree: 初案に根本的に同意しない",
+    "",
+    "回答は以下の JSON 形式で返してください。他のテキストや markdown コードフェンスは不要です。",
+    '{"stance": "agree", "reason": "初案の論理構成は妥当で補足する論点は見当たりません。"}',
+    "",
+    "- stance は必ず agree / extend / partial / disagree のいずれかにしてください",
+    "- reason は 200 字以内の日本語で、あなたの立場の根拠を簡潔に示してください",
+    "",
+    "------",
     `質問: ${input.question}`,
     "",
     "ChatGPT の初案:",
     input.chatgpt_initial_answer,
   ].join("\n");
+}
+
+/**
+ * Round 2 の structured output (`{stance, reason}`) をモデルの生テキストから parse する。
+ *
+ * パース順序 (advisor 推奨):
+ *   1. 生テキストをそのまま `JSON.parse`
+ *   2. 失敗したら最初に出現する ``` コードフェンスの中身を取り出して再 parse
+ *   3. それも失敗したら null
+ *
+ * 最後に `stance` が 4 値 union に属するか、`reason` が非空文字列かを runtime 検証する。
+ * いずれか欠けたら null (= parse 失敗扱い) にする。
+ */
+export function parseStanceResponse(
+  text: string,
+): { stance: Stance; reason: string } | null {
+  const candidates: string[] = [text.trim()];
+
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch) candidates.push(fenceMatch[1].trim());
+
+  for (const raw of candidates) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if (typeof parsed !== "object" || parsed === null) continue;
+
+    const obj = parsed as Record<string, unknown>;
+    const stance = obj.stance;
+    const reason = obj.reason;
+    if (!isStance(stance)) continue;
+    if (typeof reason !== "string" || reason.trim() === "") continue;
+
+    return { stance, reason: reason.trim() };
+  }
+  return null;
+}
+
+function isStance(value: unknown): value is Stance {
+  return (
+    value === "agree" ||
+    value === "extend" ||
+    value === "partial" ||
+    value === "disagree"
+  );
+}
+
+/**
+ * Round 2 で provider から帰ってきた生 Speaker を、stance parse 結果に基づいて変換する。
+ *
+ * 前提:
+ *   - chatgpt (Round 1) は対象外
+ *   - provider が error を返した speaker はそのまま通過 (stance 無し)
+ *   - content が undefined の speaker もそのまま通過
+ *
+ * parse 成功時: `content` を reason に置き換え、`stance` を設定
+ * parse 失敗時: `content` は原文のまま残し、`error.code = invalid_response` を追加
+ *   (原文保持はデバッグと UI 表示のため。`computeConsensus` は stance === undefined を
+ *    除外するので、content があっても consensus 計算には影響しない)
+ */
+function applyStanceParsing(speaker: Speaker): Speaker {
+  if (speaker.name === "chatgpt") return speaker;
+  if (speaker.error !== undefined) return speaker;
+  if (speaker.content === undefined) return speaker;
+
+  const parsed = parseStanceResponse(speaker.content);
+  if (!parsed) {
+    return {
+      ...speaker,
+      error: {
+        code: "invalid_response",
+        message:
+          "Failed to parse Round 2 structured output; expected JSON `{stance, reason}` but could not extract a valid stance.",
+      },
+    };
+  }
+  return {
+    ...speaker,
+    content: parsed.reason,
+    stance: parsed.stance,
+  };
 }
 
 function settledToSpeaker(
@@ -172,10 +278,9 @@ export async function runCouncil(
   };
 
   const round2Prompt = buildRound2Prompt(input);
-  const askOptions = { maxOutputTokens: ROUND_2_MAX_TOKENS } as const;
   const settled = await Promise.allSettled([
-    providers.claude.ask(round2Prompt, askOptions),
-    providers.gemini.ask(round2Prompt, askOptions),
+    providers.claude.ask(round2Prompt),
+    providers.gemini.ask(round2Prompt),
   ]);
 
   const round2: Round = {
@@ -183,7 +288,7 @@ export async function runCouncil(
     speakers: [
       settledToSpeaker("claude", settled[0]),
       settledToSpeaker("gemini", settled[1]),
-    ],
+    ].map(applyStanceParsing),
   };
 
   return {
