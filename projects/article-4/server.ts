@@ -13,7 +13,8 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { z } from "zod";
-import { askClaude, type AskClaudeError } from "./src/claude.js";
+import { claudeProvider } from "./src/providers/claude.js";
+import type { ProviderError } from "./src/providers/types.js";
 import {
   registerOAuthRoutes,
   verifyAccessToken,
@@ -77,9 +78,9 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
       _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
     },
     async ({ question, model }) => {
-      const result = await askClaude(question, { model });
+      const result = await claudeProvider.ask(question, { model });
 
-      const errorResult = (error: AskClaudeError) => ({
+      const errorResult = (error: ProviderError) => ({
         content: [
           {
             type: "text" as const,

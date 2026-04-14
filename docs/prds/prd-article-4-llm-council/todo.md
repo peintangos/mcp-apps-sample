@@ -8,9 +8,9 @@ Mark completed tasks with `- [x]` instead of removing them.
 
 - [x] spec-001: `projects/article-4/` を Article 3 からコピー派生し、`package.json` / `tsconfig.json` / `vite.config.ts` を Article 4 用に書き換える (+ Article 4 identity 整合性のため `server.ts` / `src/main.tsx` / `.env.example` の識別子も書き換え、`fly.toml` と `src/oauth.ts` は spec-005 に委譲、2026-04-14)
 - [x] spec-001: `src/providers/types.ts` に `ProviderClient` インターフェースと `Result<T>` / `ProviderError` 型を定義する (generic M パラメータで model union を束縛可能、SDK 依存ゼロ、2026-04-14)
-- [ ] spec-001: `src/providers/claude.ts` に Article 3 の `src/claude.ts` 相当を `ProviderClient` 実装として移植する
-- [ ] spec-001: `server.ts` の `ask_claude` tool を本番公開ツールとして新 Provider 抽象経由に書き換え、Article 3 と同じ `{ question, chatgpt_answer?, model? }` schema で動くことを curl で確認する
-- [ ] spec-001: Review (build check + lint + `/code-review`)
+- [x] spec-001: `src/providers/claude.ts` に Article 3 の `src/claude.ts` 相当を `ProviderClient<ClaudeModel>` 実装として移植した (旧 `src/claude.ts` は git rm、`Result<T>` シャドーイングなし、2026-04-14)
+- [x] spec-001: `server.ts` の `ask_claude` tool を `claudeProvider.ask()` 経由に書き換え、curl で port 3099 の article-4 サーバ → 実 Claude API 往復を確認 (model_used="claude-sonnet-4-6", latency_ms=2895、2026-04-14)
+- [x] spec-001: Review (build check ✅ + tsc ✅ + lint N/A + advisor 2 パス、2026-04-14)
 - [ ] spec-002: `@google/genai` を依存に追加し、`src/providers/gemini.ts` に `ProviderClient` 実装を書く
 - [ ] spec-002: `GOOGLE_API_KEY` を `.env.example` に追加し dotenv 経由で読み込む経路を整える
 - [ ] spec-002: Gemini flash / pro の実 API スモークテストを実施し、model ID とレイテンシを `knowledge.md` に記録する

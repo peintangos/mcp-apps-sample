@@ -1,39 +1,31 @@
 /**
- * 薄い Anthropic API クライアント。
+ * Claude Provider — `@anthropic-ai/sdk` を `ProviderClient` 抽象で包む薄いアダプタ。
  *
- * `ANTHROPIC_API_KEY` 環境変数から API キーを読み込み、Claude Messages API を
- * 呼び出す。エラーは throw せず `Result<T>` で返す (Article 1 の `github.ts`
- * と同じ pattern)。呼び出し側はまず `result.ok` を見て分岐する。
+ * Article 3 の `src/claude.ts` は `askClaude()` 関数 + ローカル型 (`Result` / `AskClaudeError`)
+ * を直接 export していた。Article 4 では型は `./types.js` から import し、この
+ * ファイルは `claudeProvider: ProviderClient<ClaudeModel>` を 1 つ export する。
  *
- * chatgpt_answer (呼び出し元 LLM の回答) は **あえて Claude に渡さない**。
- * これにより Claude は "ChatGPT の回答を見ない状態での独立した意見" を返し、
- * UI 側で side-by-side 比較した時に中立な対比になる。
+ * `chatgpt_answer` (呼び出し元 LLM の回答) はあえて Claude に渡さない: Claude は
+ * "他モデルの回答を見ない独立した意見" として答え、council.ts 側で side-by-side
+ * 比較や stance 判定が中立になるようにする設計を Article 3 から踏襲。
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import type {
+  AskOptions,
+  ProviderClient,
+  ProviderResponse,
+  Result,
+} from "./types.js";
 
 const MODEL_MAP = {
   sonnet: "claude-sonnet-4-6",
   opus: "claude-opus-4-6",
 } as const;
 
-export type AskClaudeModel = keyof typeof MODEL_MAP;
+export type ClaudeModel = keyof typeof MODEL_MAP;
 
-export type AskClaudeError =
-  | { code: "unauthenticated"; message: string }
-  | { code: "rate_limited"; message: string; resetAt?: string }
-  | { code: "invalid_response"; message: string }
-  | { code: "network_error"; message: string };
-
-export type Result<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: AskClaudeError };
-
-export type AskClaudeSuccess = {
-  text: string;
-  modelUsed: string;
-  latencyMs: number;
-};
+const DEFAULT_MAX_TOKENS = 1024;
 
 let cachedClient: Anthropic | null = null;
 
@@ -55,21 +47,21 @@ function getClient(): Result<Anthropic> {
   return { ok: true, data: cachedClient };
 }
 
-export async function askClaude(
+async function askClaude(
   question: string,
-  options: { model?: AskClaudeModel } = {},
-): Promise<Result<AskClaudeSuccess>> {
+  options: AskOptions<ClaudeModel> = {},
+): Promise<Result<ProviderResponse>> {
   const clientResult = getClient();
   if (!clientResult.ok) return clientResult;
 
-  const modelAlias = options.model ?? "sonnet";
+  const modelAlias: ClaudeModel = options.model ?? "sonnet";
   const modelId = MODEL_MAP[modelAlias];
 
   const start = Date.now();
   try {
     const response = await clientResult.data.messages.create({
       model: modelId,
-      max_tokens: 1024,
+      max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
       messages: [
         {
           role: "user",
@@ -124,7 +116,7 @@ export async function askClaude(
         error: {
           code: "rate_limited",
           message: anyErr.message ?? "Claude API rate limit reached",
-          resetAt,
+          ...(resetAt ? { resetAt } : {}),
         },
       };
     }
@@ -137,3 +129,8 @@ export async function askClaude(
     };
   }
 }
+
+export const claudeProvider: ProviderClient<ClaudeModel> = {
+  name: "claude",
+  ask: askClaude,
+};
