@@ -6,7 +6,7 @@ Each unchecked task should be small enough to complete in one `/implement` run o
 Mark completed tasks with `- [x]` instead of removing them.
 -->
 
-- [ ] spec-001: `projects/article-4/` を Article 3 からコピー派生し、`package.json` / `tsconfig.json` / `vite.config.ts` を Article 4 用に書き換える
+- [x] spec-001: `projects/article-4/` を Article 3 からコピー派生し、`package.json` / `tsconfig.json` / `vite.config.ts` を Article 4 用に書き換える (+ Article 4 identity 整合性のため `server.ts` / `src/main.tsx` / `.env.example` の識別子も書き換え、`fly.toml` と `src/oauth.ts` は spec-005 に委譲、2026-04-14)
 - [ ] spec-001: `src/providers/types.ts` に `ProviderClient` インターフェースと `Result<T>` / `ProviderError` 型を定義する
 - [ ] spec-001: `src/providers/claude.ts` に Article 3 の `src/claude.ts` 相当を `ProviderClient` 実装として移植する
 - [ ] spec-001: `server.ts` の `ask_claude` tool を本番公開ツールとして新 Provider 抽象経由に書き換え、Article 3 と同じ `{ question, chatgpt_answer?, model? }` schema で動くことを curl で確認する

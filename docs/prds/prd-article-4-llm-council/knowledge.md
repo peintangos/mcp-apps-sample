@@ -4,6 +4,8 @@
 
 <!-- Document patterns that should be reused in later tasks or later PRDs. -->
 
+- **rsync でプロジェクト派生** (2026-04-14): `rsync -a --exclude node_modules --exclude dist --exclude '.env' projects/article-3/ projects/article-4/` で Article 3 の構造をそのままコピーし、`.dockerignore` / `.env.example` 等の隠しファイルも含めて丸ごと派生できた。`node_modules` は後から `npm install` で再構築し、`dist` は `npm run build` で再生成、`.env` は secrets なので手動で再作成させる運用
+- **Article 4 identity rewrite の境界線** (2026-04-14): "MCP サーバ層" (server.ts / src/main.tsx / .env.example) はプロジェクト派生の同一タスクで書き換え、"デプロイ層" (fly.toml / src/oauth.ts FIXED_CLIENT_ID) は Fly.io アプリ名 + OAuth client 登録と一体なので spec-005 に委譲した。この境界線は将来プロジェクト派生するときにも有効
 - (pending) `ProviderClient` 抽象は Article 3 の `src/claude.ts` を踏襲しつつ、model identifier のマッピングと Result 型を各 provider の内部に閉じる
 - (pending) Article 4 は **3 ツール構成** (`ask_claude` / `ask_gemini` / `start_council`) で設計する。単発質問から合議モードまで段階的に使える導線を意識する
 - (pending) Synthesizer 型合議は `src/council.ts` に Round 1-2 までを封じ、Round 3 (改訂案) はサーバーで生成せず `content` フィールドに埋めた改訂指示プロンプトで ChatGPT に書かせる
@@ -20,6 +22,8 @@
 - Article 3 で導入済みの OAuth 2.1 自前実装と Fly.io 設定はコピーして使う。Article 4 独自の認可要件はない
 - Round 2 は `Promise.allSettled` で並列化。1 モデル失敗時も合議全体は継続する (FR-5)
 - `ask_claude` は Article 3 とは別プロジェクトで独立実装する (Article 3 の `projects/article-3/ask_claude` は凍結)
+- **現時点での `projects/article-4/` の状態** (2026-04-14 / bootstrap 完了): MCP サーバは Article 3 の `src/claude.ts` を直接 import しており、まだ Provider 抽象を経由していない。`ask_claude` tool も Article 3 と同じ動作をそのまま引き継いでおり、Article 4 の 3 ツール構成 (`ask_claude` / `ask_gemini` / `start_council`) のうち最初の 1 本だけが (暫定的に) 動く状態。spec-001 の残タスクで `src/providers/` 配下に整理する
+- **Fly.io と OAuth client はまだ Article 3 のまま** (2026-04-14): `fly.toml` は `app = "article-3-claude-second-opinion"` のまま、`src/oauth.ts` の `FIXED_CLIENT_ID` は `"article-3-mcp-client"` のまま。spec-005 で Article 4 用に書き換える前にデプロイを試すと Article 3 の本番アプリを上書きする危険があるため、**本ブランチの状態では `fly deploy` を絶対に実行しないこと**
 
 ## Gotchas
 

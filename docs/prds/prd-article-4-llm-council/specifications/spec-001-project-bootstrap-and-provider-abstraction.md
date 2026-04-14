@@ -35,8 +35,12 @@ Feature: Article 4 プロジェクトの土台と Provider 抽象
 
 ## Implementation Steps
 
-- [ ] `projects/article-4/` ディレクトリを作り、Article 3 から `package.json` / `tsconfig.json` / `vite.config.ts` / `server.ts` / `src/main.tsx` / `src/components/` / `src/mcp-app.html` / `.env.example` をコピーする
-- [ ] `projects/article-4/package.json` の `name` / `description` を Article 4 用に書き換え、Article 3 への依存が残っていないことを確認する
+- [x] `projects/article-4/` ディレクトリを作り、Article 3 から `package.json` / `tsconfig.json` / `vite.config.ts` / `server.ts` / `src/main.tsx` / `src/components/` / `src/mcp-app.html` / `.env.example` / `Dockerfile` / `fly.toml` / `src/oauth.ts` / `src/claude.ts` / `.dockerignore` / `package-lock.json` を `rsync` で一括コピーした (`node_modules` / `dist` / `.env` を除外、2026-04-14)
+- [x] `projects/article-4/package.json` の `name` を `article-4-llm-council`、`description` を Article 4 向けに書き換え (2026-04-14)
+- [x] `tsconfig.json` と `vite.config.ts` は path-relative で Article 識別子を含まないため書き換え不要と判定 (2026-04-14)
+- [x] **Article 4 identity の MCP サーバ層書き換え** (task 本文の "package.json / tsconfig.json / vite.config.ts" に加えて identity 整合性のため拡張実施): `server.ts` の `UI_RESOURCE_URI` を `ui://llm-council/mcp-app.html`、`McpServer.name` を `article-4-llm-council`、`registerAppResource` のタイトル / 説明、4 箇所のログ prefix `[article-3]` を `[article-4]` に、`src/main.tsx` の `useApp.appInfo.name` と Header フッターを Article 4 に、`.env.example` のヘッダと Fly.io URL 例 2 件と spec-006 → spec-005 参照を更新 (2026-04-14)
+- [x] **デプロイ層は意図的に未着手**: `fly.toml` (app name / OAuth issuer / allowed_hosts の 5 行) と `src/oauth.ts` (`FIXED_CLIENT_ID = "article-3-mcp-client"`) は Fly.io app 名と OAuth client 登録が一体で、本番 Fly.io / ChatGPT 連携と合わせて扱うべきため spec-005 で書き換える (2026-04-14)
+- [x] `npm install` で 246 packages / 0 vulnerabilities、`npm run build` で `dist/mcp-app.html` 473.85 kB (gzip 140.46 kB) 生成を確認、`npx tsc --noEmit` もエラーなし (2026-04-14)
 - [ ] `src/providers/types.ts` を新規作成し、`Result<T>`, `ProviderError`, `ProviderClient`, `ProviderResponse` 型を定義する
 - [ ] `src/providers/claude.ts` を新規作成し、Article 3 の `src/claude.ts` のロジックを `ProviderClient` 実装として移植する (model identifier マッピング・401/429 判別・latency 計測を引き継ぐ)
 - [ ] `server.ts` の `ask_claude` tool handler を `claudeProvider.ask()` 経由に書き換え、**本番公開ツール** として登録する (Article 3 と同じ `{ question, chatgpt_answer?, model? }` schema を維持)
