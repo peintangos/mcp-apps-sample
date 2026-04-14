@@ -15,7 +15,7 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-002: `GOOGLE_API_KEY` を `.env.example` に追加し dotenv 経由で読み込む経路を整える (`.env.example` に ANTHROPIC_API_KEY の直後に追加、`import "dotenv/config"` は spec-001 で server.ts:1 に既設なので追加コード変更なし、2026-04-14)
 - [x] spec-002: Gemini flash / pro の実 API スモークテストを実施し、model ID とレイテンシを `knowledge.md` に記録する (一時 `smoke-gemini.ts` で Claude + Gemini を `Promise.all` 並列実行、`gemini-2.5-flash` 1657-3138ms / `gemini-2.5-pro` 8111ms ≈ flash の 5x、pro 503 揺らぎは再試行で解消、スクリプトは削除、2026-04-14)
 - [x] spec-002: `server.ts` に `ask_gemini` tool を本番公開ツールとして登録し、curl で実 Gemini 応答が取れることを確認する (zod enum `["flash","pro"]`、`structuredContent.gemini_answer`、port 3098 で curl → flash 1676ms / pro 15187ms / claude 1326ms が並行稼働、`gemini.ts` の `DEFAULT_MAX_TOKENS` を 1024→4096 に修正して pro の thinking トークン食い尽くし問題も解消、2026-04-14)
-- [ ] spec-002: Review (build check + lint + `/code-review`)
+- [x] spec-002: Review (build check + lint + `/code-review`) (`npm test` ✅ / `tsc --noEmit` ✅ / `vite build` ✅ / lint N/A / advisor 4 コミット俯瞰レビューで blocking 所見なし、2026-04-14)
 - [ ] spec-003: `src/council.ts` に Round 1-2 構成の Synthesizer 型合議オーケストレータを実装する (Round 3 はサーバーで生成しない)
 - [ ] spec-003: `Stance` / `Consensus` 型と `computeConsensus()` ヘルパーを実装する (2 人以上の成功を unanimous 判定の必須条件にする)
 - [ ] spec-003: Round 2 のプロンプトを "批判" ではなく "独立評価 + stance 表明" で設計し、構造化出力 `{ stance, reason }` を取得する

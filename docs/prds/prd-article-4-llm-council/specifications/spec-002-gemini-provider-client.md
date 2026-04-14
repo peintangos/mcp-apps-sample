@@ -52,7 +52,7 @@ Feature: Gemini Provider Client
 - [x] `server.ts` に `ask_gemini` tool を登録する。schema は `ask_claude` と対称 (`{ question, chatgpt_answer?, model? }`)、`model` は `"flash" | "pro"`。handler は `geminiProvider.ask()` を呼び、結果を `structuredContent` に入れる (zod enum `["flash","pro"]`、`structuredContent.gemini_answer` キー、error closure は ask_claude をミラー、**PRD 本文の `chatgpt_answer?` は設計変更でドロップ済み**: spec-001 時点で `ask_claude` は `{question, model}` のみ、合議コンテキストは spec-003 の `start_council({question, chatgpt_initial_answer, ...})` に集約する方針のため、`ask_gemini` も `{question, model}` で対称性を保つ、2026-04-14)
 - [x] Article 3 の `AnswerColumn` 相当の単発応答 UI を `ask_gemini` にも流用できるよう、UI 共通化の段取りを `knowledge.md` に残す (実装は spec-004 で) (spec-004 で `src/main.tsx` が tool name で分岐 → `SingleAnswerView` をプロバイダ パラメータ化する段取りは todo.md / knowledge.md で既に明示済み、2026-04-14)
 - [x] curl で `ask_gemini` を叩き、実 Gemini 応答が `structuredContent` に入ることを確認する (flash 1676ms / "2"、pro 15187ms / "パフォーマンスを犠牲にしないメモリ安全性。"、ask_claude 1326ms / "1+1は**2**です。" で並行健在、pro は初回 `invalid_response` を踏んで DEFAULT_MAX_TOKENS を 1024→4096 に修正してから成功、2026-04-14)
-- [ ] Review (build check + lint + `/code-review`)
+- [x] Review (build check + lint + `/code-review`) (`npm test` ✅ / `tsc --noEmit` ✅ / `vite build` ✅ / lint N/A / advisor code-review 4 コミット俯瞰で blocking 所見なし、観測された 3 点 (cachedClient 静的キャッシュ・空白のみ text・spec-004 で解消予定の UI ラベル) はいずれも deferred 扱い、2026-04-14)
 
 ## Technical Notes
 
