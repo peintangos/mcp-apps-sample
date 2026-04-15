@@ -21,6 +21,7 @@ import {
   computeConsensus,
   parseStanceResponse,
   buildRevisionPrompt,
+  summarizeCouncilFailure,
   type CouncilTranscript,
   type Speaker,
   type Stance,
@@ -87,6 +88,22 @@ const baseInput = {
   question: "test question",
   chatgpt_initial_answer: "test initial answer",
 };
+
+function makeTranscript(
+  consensus: CouncilTranscript["consensus"],
+  speakers: Speaker[],
+): CouncilTranscript {
+  return {
+    ...baseInput,
+    rounds: [
+      { label: "round_1", speakers: [{ name: "chatgpt", content: baseInput.chatgpt_initial_answer }] },
+      { label: "round_2", speakers },
+    ],
+    consensus,
+    revision_prompt: "",
+    total_latency_ms: 0,
+  };
+}
 
 // ----------------------------------------------------------------------------
 // parseStanceResponse
@@ -315,22 +332,6 @@ describe("runCouncil", () => {
 // ----------------------------------------------------------------------------
 
 describe("buildRevisionPrompt", () => {
-  function makeTranscript(
-    consensus: CouncilTranscript["consensus"],
-    speakers: Speaker[],
-  ): CouncilTranscript {
-    return {
-      ...baseInput,
-      rounds: [
-        { label: "round_1", speakers: [{ name: "chatgpt", content: baseInput.chatgpt_initial_answer }] },
-        { label: "round_2", speakers },
-      ],
-      consensus,
-      revision_prompt: "",
-      total_latency_ms: 0,
-    };
-  }
-
   it("unanimous_agree: header says 改訂不要, still quotes round 2", () => {
     const t = makeTranscript("unanimous_agree", [
       { name: "claude", stance: "extend", content: "補足視点 A" },
@@ -356,5 +357,23 @@ describe("buildRevisionPrompt", () => {
       { name: "gemini", stance: "disagree", content: "nope" },
     ]);
     expect(buildRevisionPrompt(t, "unanimous_disagree")).toContain("根本から書き直し");
+  });
+});
+
+describe("summarizeCouncilFailure", () => {
+  it("collects round 2 provider errors into structuredContent.error payload", () => {
+    const transcript = makeTranscript("mixed", [
+      { name: "claude", error: { code: "rate_limited", message: "429" } },
+      { name: "gemini", error: { code: "network_error", message: "ECONNRESET" } },
+    ]);
+
+    expect(summarizeCouncilFailure(transcript)).toEqual({
+      code: "all_providers_failed",
+      message: "Round 2 failed for all providers (Claude=rate_limited, Gemini=network_error).",
+      providers: [
+        { name: "claude", error: { code: "rate_limited", message: "429" } },
+        { name: "gemini", error: { code: "network_error", message: "ECONNRESET" } },
+      ],
+    });
   });
 });

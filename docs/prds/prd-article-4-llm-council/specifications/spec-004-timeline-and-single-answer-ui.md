@@ -79,8 +79,8 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
 
 ## Implementation Steps
 
-- [ ] `src/main.tsx` でツール種別 (`ask_claude` / `ask_gemini` / `start_council`) を判定し、表示コンポーネントを分岐する (`_meta.tool_name` または `structuredContent` の形で判別)
-- [ ] Article 3 の `AnswerColumn.tsx` を `src/components/SingleAnswerView.tsx` として流用または軽量リネームし、`ask_claude` / `ask_gemini` 両方で使えるようにプロバイダ名とモデル名をパラメータ化する
+- [x] `src/main.tsx` でツール種別 (`ask_claude` / `ask_gemini` / `start_council`) を判定し、表示コンポーネントを分岐する (`_meta.tool_name` と `structuredContent` shape の両方を吸収する `src/ui-router.ts` を追加。`main.tsx` は single-answer / council / unknown の 3 分岐に整理し、loading 中も pending tool 名で view を安定保持、2026-04-16)
+- [x] Article 3 の `AnswerColumn.tsx` を `src/components/SingleAnswerView.tsx` として流用または軽量リネームし、`ask_claude` / `ask_gemini` 両方で使えるようにプロバイダ名とモデル名をパラメータ化する (`SingleAnswerView.tsx` を追加し、provider ごとの label / accent color / answer field を `buildSingleAnswerViewModel()` で吸収。`main.tsx` の単発分岐はこのコンポーネントへ移し、vitest で 4 ケースの helper テストを追加、2026-04-16)
 - [ ] `src/components/ConsensusBadge.tsx` を新規実装する (タイムライン最上部に固定表示、`CouncilTranscript.consensus` と speaker の stance 集計を props で受けて色分け + カウント表記)
 - [ ] `src/components/RoundTimeline.tsx` を新規実装する (`CouncilTranscript` を props で受けて Round 1-2 をループ描画、最上部に ConsensusBadge を配置)
 - [ ] `src/components/SpeakerCard.tsx` を新規実装する (provider バッジ / model / latency / **stance タグ (agree/extend/partial/disagree の色分け + テキストラベル併記)** / Markdown / エラー表示をひとまとめに)

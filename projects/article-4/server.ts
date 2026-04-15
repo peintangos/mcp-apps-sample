@@ -16,7 +16,8 @@ import { z } from "zod";
 import { claudeProvider } from "./src/providers/claude.js";
 import { geminiProvider } from "./src/providers/gemini.js";
 import type { ProviderError } from "./src/providers/types.js";
-import { runCouncil } from "./src/council.js";
+import type { CouncilTranscript } from "./src/council.js";
+import { runCouncil, summarizeCouncilFailure } from "./src/council.js";
 import {
   registerOAuthRoutes,
   verifyAccessToken,
@@ -249,7 +250,7 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
         };
       }
 
-      const transcript = await runCouncil(
+      const transcript: CouncilTranscript = await runCouncil(
         { question, chatgpt_initial_answer },
         { claude: claudeProvider, gemini: geminiProvider },
       );
@@ -261,14 +262,21 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
         providerSpeakers.every((s) => s.error !== undefined);
 
       if (allFailed) {
+        const error = summarizeCouncilFailure(transcript);
         return {
           content: [
             {
               type: "text" as const,
-              text: "Council failed: all Round 2 speakers errored. See structuredContent.rounds[1].speakers[*].error for details. No revision prompt is available — you may retry later or continue with your initial answer.",
+              text:
+                `Council failed (${error.code}): ${error.message} ` +
+                "See structuredContent.error.providers for details. " +
+                "No revision prompt is available — you may retry later or continue with your initial answer.",
             },
           ],
-          structuredContent: transcript,
+          structuredContent: {
+            ...transcript,
+            error,
+          },
           isError: true,
         };
       }

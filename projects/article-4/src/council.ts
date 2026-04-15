@@ -97,6 +97,15 @@ export type CouncilTranscript = {
   total_latency_ms: number;
 };
 
+export type CouncilErrorSummary = {
+  code: "all_providers_failed";
+  message: string;
+  providers: Array<{
+    name: Exclude<SpeakerName, "chatgpt">;
+    error: ProviderError;
+  }>;
+};
+
 export type CouncilProviders = {
   claude: ProviderClient;
   gemini: ProviderClient;
@@ -221,6 +230,31 @@ export function buildRevisionPrompt(
     "",
     tailInstruction,
   ].join("\n");
+}
+
+export function summarizeCouncilFailure(
+  transcript: CouncilTranscript,
+): CouncilErrorSummary {
+  const round2 = transcript.rounds.find((r) => r.label === "round_2");
+  const providers = (round2?.speakers ?? []).flatMap((speaker) => {
+    if (speaker.name === "chatgpt" || speaker.error === undefined) {
+      return [];
+    }
+    return [{ name: speaker.name, error: speaker.error }];
+  });
+
+  const providerSummary = providers
+    .map(({ name, error }) => `${SPEAKER_LABEL[name]}=${error.code}`)
+    .join(", ");
+
+  return {
+    code: "all_providers_failed",
+    message:
+      providers.length > 0
+        ? `Round 2 failed for all providers (${providerSummary}).`
+        : "Round 2 failed before any provider result was recorded.",
+    providers,
+  };
 }
 
 function buildRound2Prompt(input: CouncilInput): string {
