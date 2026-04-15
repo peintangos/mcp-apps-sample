@@ -11,6 +11,12 @@
 - **Article 4 のテスト基盤は vitest 1 本**: `projects/article-4/src/council.test.ts` に pure unit + mock orchestrator tests を集約。vite.config.ts は UI singlefile 用に root=src に切ってあるので、test 用には別 `vitest.config.ts` を作って root をプロジェクトに戻す。ralph.toml の `test_integration` に `cd projects/article-4 && npm test` を登録したので、今後 `/test` スキルで自動実行される
 - **`vitest.config.ts` のコメントに glob pattern (`**\/*.test.ts` 的な表記) を書くと rolldown parser が parse error で落ちる** (2026-04-15 / spec-003 task 6-8 実装中に遭遇): rolldown は JSDoc コメント内の `**` を JSX 的に解釈しようとして Unexpected token を出す。回避策は該当箇所を通常の行コメント (`//`) にするか、glob 表現をコードブロック外で書かない。vite の rollup 版だと起きなかったので、rolldown 固有の挙動
 - **`vi.mock` を使わず plain object で `ProviderClient` を mock** (2026-04-15 / spec-003 task 8 / advisor 指摘): council.ts が `ProviderClient` を loose generic で設計したおかげで、テストは interface を満たす plain object (`{name, ask: async () => ...}`) を返すヘルパー (`mockOkProvider` / `mockErrorProvider` / `mockThrowingProvider`) を書くだけで足りる。`vi.mock()` に頼るとテストが vitest ランタイムに癒着する + 抽象境界が壊れる。この "抽象境界をテストで再利用する" は loose generic 設計の最大のリターン
+- **`mixed` consensus は実機の curl E2E では engineering が困難** (2026-04-15 / spec-003 task 9 / 3 回実測の結果): Claude sonnet と Gemini flash はどちらも絶対主張・事実誤りを **極めて確実に** reject するため、強い controversial 主張を `chatgpt_initial_answer` に入れると両モデルとも disagree に倒れ、穏当な主張を入れると両モデルとも agree に倒れる。"mixed" を生み出すには両モデルの判断が割れるような **真に gray area な論点** (文化・価値観依存 / 業界慣習差 / 政治/倫理的中立) が必要で、prompt engineering だけで狙い撃ちするのは現実的ではない。実測:
+  - "1 + 1 = 3 です (どの教科書にも記載されている)" → 両モデル即 disagree、`unanimous_disagree`
+  - "Go が圧倒的に優れている、メモリリーク絶対起きない" → 両モデル「絶対 X」の誇張を捉えて disagree、`unanimous_disagree`
+  - "Rust vs Go 初学者は Go" → 両モデル agree/extend、`unanimous_agree`
+  - **対策**: mixed 分岐は `src/council.test.ts` の mock unit test で網羅 (case (b) + partial スタンスのバリエーション)。E2E は "plumbing が動く" の保証として 2 系統で十分。記事 (spec-006) では「LLM は mixed を狙って出すのが難しく、真の合議分岐は unit test で網羅する設計が現実的」という洞察を書ける
+- **E2E curl の determinism** (2026-04-15 / spec-003 task 9): 同じ入力 ("Rust/Go 初学者 + Go 推奨") を 2 回叩いて両方とも `unanimous_agree` を取得 (8107ms と 6623ms)。Claude sonnet と Gemini flash は stance 判定がほぼ deterministic で、reason 本文は微妙に揺らぐが stance カテゴリは揺らがない。これは council の再現性にとって重要な性質 — ユーザが同じ質問を再送して consensus が違う分岐に飛ぶと UX が壊れる
 - **`start_council` tool handler の 4 分岐** (2026-04-15 / spec-003 task 5): validation 順序が重要で、上から順に:
   - (1) `chatgpt_initial_answer.trim() === ""` → `invalid_input` で即 return (API 呼び出し前のチェックで課金を避ける)
   - (2) `ANTHROPIC_API_KEY` と `GOOGLE_API_KEY` の両方を check、欠けたキー名を error.message に列挙して `unauthenticated` で return (合議は単独 provider では成立しないので両方必須)
