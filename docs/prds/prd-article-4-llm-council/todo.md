@@ -29,7 +29,6 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-004: mock data で consensus 3 バリエーション (unanimous_agree / mixed / unanimous_disagree) × 3 ツールのプレビューを手元確認する (`#preview` ハッシュで起動する `PreviewGallery` を追加、ask_claude / ask_gemini / council 3 variants + partial failure + loading の 7 セクション、テーマトグル付き、code-review の must-fix で theme.ts 切り出しによる循環依存解消、2026-04-16)
 - [x] spec-004: basic-host で 3 ツールすべての実応答が正しく描画されることを確認する (dev server で HTML 200 確認、dist バンドルに consensus 値 + responsive grid コードが含まれることを検証、実 API E2E は API キー必要のため手動確認に委譲、2026-04-16)
 - [x] spec-004: Review (build check + lint + `/code-review`) (tsc ✅ / vite build 492KB ✅ / vitest 39 pass ✅ / code-review must-fix 1 件 (循環依存) を theme.ts 切り出しで解消、FR-9 (diff ライブラリ非導入) 確認済み、2026-04-16)
-- [ ] spec-005: Article 3 の OAuth 2.1 設定を Article 4 用に複製し、`fly.toml` を Article 4 アプリ名に書き換える
 - [ ] spec-005: Fly.io にデプロイし、`ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / OAuth secrets を設定する
 - [ ] spec-005: ChatGPT Plus の Custom Connector に登録し、3 ツール全てが呼び出せることを実機確認する
 - [ ] spec-005: `start_council` で iframe 描画 + ChatGPT が改訂案をチャットに出すところまで実機確認し、スクショを保存する

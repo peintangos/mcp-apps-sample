@@ -1,15 +1,16 @@
-# Fly.io deployment config for Article 3 — ChatGPT × Claude Second Opinion
-# 初回: `fly apps create article-3-claude-second-opinion --org personal`
+# Fly.io deployment config for Article 4 — ChatGPT 主催の LLM 合議
+# 初回: `fly apps create article-4-llm-council --org personal`
 # 以降: `fly deploy`
 #
 # Secrets (= env vars with redaction) は必ず CLI でセット:
 #   fly secrets set \
 #     ANTHROPIC_API_KEY=sk-ant-... \
+#     GOOGLE_API_KEY=<your-google-api-key> \
 #     OAUTH_OWNER_PASSWORD=$(openssl rand -hex 16) \
-#     OAUTH_ISSUER=https://article-3-claude-second-opinion.fly.dev \
-#     ALLOWED_HOSTS=article-3-claude-second-opinion.fly.dev
+#     OAUTH_ISSUER=https://article-4-llm-council.fly.dev \
+#     ALLOWED_HOSTS=article-4-llm-council.fly.dev
 
-app = "article-3-claude-second-opinion"
+app = "article-4-llm-council"
 primary_region = "nrt"  # Narita — 著者が東京近郊なので
 
 [build]

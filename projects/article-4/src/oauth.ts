@@ -29,7 +29,7 @@ import crypto from "node:crypto";
 
 const CODE_TTL_MS = 10 * 60 * 1000; // authorization code: 10 分
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // access token: 24 時間
-const FIXED_CLIENT_ID = "article-3-mcp-client";
+const FIXED_CLIENT_ID = "article-4-mcp-client";
 
 // ---- 型 ----------------------------------------------------------------
 
@@ -186,7 +186,7 @@ export function renderConsentScreen(req: Request, res: Response): void {
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Claudeに聞く — アクセスの承認</title>
+  <title>LLM Council のアクセス承認</title>
   <style>
     body {
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -283,7 +283,7 @@ export function renderConsentScreen(req: Request, res: Response): void {
 </head>
 <body>
   <form class="card" method="POST" action="/authorize">
-    <h1>Claudeに聞く</h1>
+    <h1>LLM Council</h1>
     <p class="muted">
       MCP クライアントがこのサーバーへのアクセスを要求しています。
       オーナー用パスワードを入力して承認してください。

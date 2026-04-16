@@ -58,9 +58,9 @@ Feature: ChatGPT Custom Connector End-to-End
 
 ## Implementation Steps
 
-- [ ] Article 3 の `src/oauth.ts` を `projects/article-4/src/oauth.ts` にコピーし、発行者 / audience / scope 等の設定値を Article 4 用に書き換える
-- [ ] Article 3 の `Dockerfile` を Article 4 に複製し、必要な env / build コマンドを Article 4 に合わせる
-- [ ] Article 3 の `fly.toml` を複製し、アプリ名 / ポート / ヘルスチェック / スケーリング設定を Article 4 用に書き換える
+- [x] Article 3 の `src/oauth.ts` を `projects/article-4/src/oauth.ts` にコピーし、発行者 / audience / scope 等の設定値を Article 4 用に書き換える (`FIXED_CLIENT_ID` を `article-4-mcp-client` に変更し、同意画面のタイトル / 見出しも `LLM Council` に更新。`src/oauth.test.ts` で DCR と consent 画面の Article 4 識別子を固定検証、2026-04-16)
+- [x] Article 3 の `Dockerfile` を Article 4 に複製し、必要な env / build コマンドを Article 4 に合わせる (spec-001 で複製済みだったものを spec-005 観点で再確認。`npm run build` が Article 4 構成で通るため変更不要と判定、2026-04-16)
+- [x] Article 3 の `fly.toml` を複製し、アプリ名 / ポート / ヘルスチェック / スケーリング設定を Article 4 用に書き換える (`app = "article-4-llm-council"` へ更新し、`fly apps create` 例と `OAUTH_ISSUER` / `ALLOWED_HOSTS` コメントも Article 4 の Fly ドメインに揃えた。`GOOGLE_API_KEY` secret 例も追記、2026-04-16)
 - [ ] Fly.io の secrets に `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, OAuth クライアント情報を設定する
 - [ ] `fly deploy` を実行し、公開 URL 経由で MCP サーバーが応答することを curl で確認する
 - [ ] ChatGPT Plus/Pro の Custom Connector に Article 4 の URL を登録し、OAuth フローが完走することを確認する
