@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import { useApp } from "@modelcontextprotocol/ext-apps/react";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SingleAnswerView } from "./components/SingleAnswerView.js";
+import { RoundTimeline } from "./components/RoundTimeline.js";
 import {
   extractToolName,
   isCouncilStructured,
@@ -346,98 +347,14 @@ function CouncilBranchBody({
         />
       ) : null}
 
-      <section
-        style={{
-          padding: "1rem 1.125rem",
-          border: `1px solid ${COUNCIL_COLOR}55`,
-          borderRadius: "0.875rem",
-          background:
-            "linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, rgba(180, 83, 9, 0.02) 100%)",
-          boxShadow: "0 10px 24px rgba(180, 83, 9, 0.08)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.75rem",
-            marginBottom: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: COUNCIL_COLOR,
-              }}
-            >
-              LLM Council
-            </div>
-            <div
-              style={{
-                fontSize: "0.9375rem",
-                marginTop: "0.25rem",
-              }}
-            >
-              {isToolRunning
-                ? "合議を実行中です。タイムライン UI は次タスクで実装します。"
-                : "分岐ロジックは council 用に切り替わりました。タイムライン部品は次タスクで追加します。"}
-            </div>
-          </div>
-          {transcript ? (
-            <span
-              style={{
-                padding: "0.25rem 0.625rem",
-                borderRadius: "9999px",
-                background: "#fff7ed",
-                border: `1px solid ${COUNCIL_COLOR}44`,
-                color: COUNCIL_COLOR_STRONG,
-                fontSize: "0.75rem",
-                fontWeight: 700,
-              }}
-            >
-              {transcript.consensus}
-            </span>
-          ) : null}
-        </div>
+      {topLevelError ? (
+        <ErrorCard
+          title={`Council: ${topLevelError.code}`}
+          message={topLevelError.message}
+        />
+      ) : null}
 
-        {topLevelError ? (
-          <ErrorCard
-            title={`Council: ${topLevelError.code}`}
-            message={topLevelError.message}
-          />
-        ) : null}
-
-        {transcript ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "0.75rem",
-            }}
-          >
-            <CouncilMetric
-              label="Consensus"
-              value={transcript.consensus}
-            />
-            <CouncilMetric
-              label="Rounds"
-              value={String(transcript.rounds.length)}
-            />
-            <CouncilMetric
-              label="Latency"
-              value={`${transcript.total_latency_ms}ms`}
-            />
-          </div>
-        ) : (
-          <InfoCard text="Council transcript を待っています…" />
-        )}
-      </section>
+      <RoundTimeline transcript={transcript} isLoading={isToolRunning} />
     </div>
   );
 }
@@ -478,44 +395,6 @@ function QuestionCard({
       </div>
       <div style={{ fontSize: "0.9375rem", color: colors.text }}>{question}</div>
     </section>
-  );
-}
-
-function CouncilMetric({ label, value }: { label: string; value: string }) {
-  const colors = useColors();
-
-  return (
-    <div
-      style={{
-        padding: "0.75rem 0.875rem",
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        borderRadius: "0.75rem",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "0.6875rem",
-          color: colors.textMuted,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          fontWeight: 700,
-          marginBottom: "0.25rem",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: "0.9375rem",
-          color: colors.text,
-          fontWeight: 700,
-          wordBreak: "break-word",
-        }}
-      >
-        {value}
-      </div>
-    </div>
   );
 }
 

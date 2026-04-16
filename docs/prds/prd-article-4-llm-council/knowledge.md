@@ -66,8 +66,10 @@
 - (pending) Article 4 は **3 ツール構成** (`ask_claude` / `ask_gemini` / `start_council`) で設計する。単発質問から合議モードまで段階的に使える導線を意識する
 - (pending) Synthesizer 型合議は `src/council.ts` に Round 1-2 までを封じ、Round 3 (改訂案) はサーバーで生成せず `content` フィールドに埋めた改訂指示プロンプトで ChatGPT に書かせる
 - (pending) **Round 2 は "批判" ではなく "stance-based 独立評価"**。各モデルは `agree` / `extend` / `partial` / `disagree` の 4 値 stance を表明する。サーバーは stance 集計から `consensus` (`unanimous_agree` / `mixed` / `unanimous_disagree`) を導出し、consensus に応じて 3 系統の改訂指示を `revision_prompt` として `content` に埋め込む
-- (pending) UI はツール種別で分岐する: 単発応答 UI (Article 3 の `AnswerColumn` 流用) と 合議タイムライン UI (Consensus バッジ + stance タグ + consensus 連動フッター) の 2 系統
-- (pending) **stance タグの色分けは accessibility 準拠**: 色だけでなくテキストラベル (agree / extend / partial / disagree) を併記する。色覚多様性への配慮と、モノクロスクショでも読み解ける記事化要件を両立させる
+- **Council UI の 4 コンポーネント構成** (2026-04-16 / spec-004): `RoundTimeline` がオーケストレーターとして `ConsensusBadge` / `SpeakerCard` / `RevisionFooter` を縦タイムラインに配置する。`SpeakerCard` は既存の `AnswerColumn` を re-compose して stance タグを上部に追加。この "既存コンポーネントを直接再利用して新しい文脈に組み込む" パターンにより、マークダウン描画品質が自動的に一致し、新規コードは分岐ロジックとスタイリングのみ
+- **CSS Grid によるメディアクエリ不要のレスポンシブ 2 カラム** (2026-04-16 / spec-004): `gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))"` で iframe 幅 < 640px 時に自動縦並びになる。inline style のみで完結するため、CSS ファイルなしプロジェクト (Article 3/4) に最適。ただし `min()` CSS 関数のブラウザサポートは 2020+ なので、古いブラウザ対応が必要ならフォールバックが要る
+- **stance タグの色分けは accessibility 準拠で実装済み**: agree=緑 / extend=青 / partial=黄 / disagree=赤 の 4 色に加え、テキストラベルを必ず併記する pill バッジ。エラー時は "未表明" をグレーで表示。色覚多様性への配慮と、モノクロスクショでも読み解ける記事化要件を両立
+- **CouncilBranchBody からプレースホルダーを除去** (2026-04-16 / spec-004): main.tsx の `CouncilMetric` (consensus / rounds / latency の 3 メトリクスカード) と "タイムライン UI は次タスクで実装します" のプレースホルダーテキストを削除し、`RoundTimeline` コンポーネントに置換。CouncilBranchBody は QuestionCard + ErrorCard (top-level error) + RoundTimeline の 3 要素に整理された
 
 ## Integration Notes
 
