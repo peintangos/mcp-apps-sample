@@ -1,4 +1,4 @@
-import { useColors } from "../main.js";
+import { useColors } from "../theme.js";
 import type { CouncilStructured } from "../ui-router.js";
 
 type Consensus = CouncilStructured["consensus"];

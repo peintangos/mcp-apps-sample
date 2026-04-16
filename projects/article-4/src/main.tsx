@@ -1,15 +1,16 @@
-import {
-  createContext,
-  StrictMode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { useApp } from "@modelcontextprotocol/ext-apps/react";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SingleAnswerView } from "./components/SingleAnswerView.js";
 import { RoundTimeline } from "./components/RoundTimeline.js";
+import { PreviewGallery } from "./preview-gallery.js";
+import {
+  ThemeContext,
+  LIGHT_PALETTE,
+  DARK_PALETTE,
+  useColors,
+} from "./theme.js";
 import {
   extractToolName,
   isCouncilStructured,
@@ -19,10 +20,8 @@ import {
   type ToolView,
 } from "./ui-router.js";
 
-// Claude ブランドカラー (オレンジ系、両テーマ共通)
-// - BASE は strong / aggressive な濃いオレンジ (ヘッダ背景・ボーダー用)
-// - STRONG は最も濃いオレンジ (グラデーションのダーク端・強調テキスト用)
-// soft 系の背景色は Palette の claudeSoftBg で theme-aware に切り替える
+export { useColors, type ColorPalette } from "./theme.js";
+
 const CLAUDE_COLOR = "#d97757";
 const CLAUDE_COLOR_STRONG = "#c85a34";
 const GEMINI_COLOR = "#2f6fed";
@@ -31,72 +30,6 @@ const COUNCIL_COLOR = "#b45309";
 const COUNCIL_COLOR_STRONG = "#7c2d12";
 
 type Status = "connecting" | "connected" | "error";
-
-export type ColorPalette = {
-  bg: string;
-  surface: string;
-  surfaceAlt: string;
-  border: string;
-  text: string;
-  textMuted: string;
-  codeBg: string;
-  errorBg: string;
-  errorBorder: string;
-  errorText: string;
-  badgeConnectingColor: string;
-  badgeConnectingBg: string;
-  badgeConnectedColor: string;
-  badgeConnectedBg: string;
-  badgeErrorColor: string;
-  badgeErrorBg: string;
-  claudeSoftBg: string;
-};
-
-const LIGHT_PALETTE: ColorPalette = {
-  bg: "#fffaf5", // 全体を薄いオレンジ寄りに
-  surface: "#ffffff",
-  surfaceAlt: "#fef7f0", // クリーム寄り
-  border: "#fce3d1",
-  text: "#1f1208",
-  textMuted: "#8a5a3c",
-  codeBg: "#fff3e9",
-  errorBg: "#fef2f2",
-  errorBorder: "#fecaca",
-  errorText: "#7f1d1d",
-  badgeConnectingColor: "#b38a6a",
-  badgeConnectingBg: "#fef7f0",
-  badgeConnectedColor: "#15803d",
-  badgeConnectedBg: "#dcfce7",
-  badgeErrorColor: "#b91c1c",
-  badgeErrorBg: "#fee2e2",
-  claudeSoftBg: "#fef1ea",
-};
-
-const DARK_PALETTE: ColorPalette = {
-  bg: "#1a0f07", // 濃茶 (オレンジ系 dark)
-  surface: "#261811",
-  surfaceAlt: "#1f130a",
-  border: "#523022",
-  text: "#fef1ea",
-  textMuted: "#c9a48c",
-  codeBg: "#0f0803",
-  errorBg: "#450a0a",
-  errorBorder: "#7f1d1d",
-  errorText: "#fecaca",
-  badgeConnectingColor: "#c9a48c",
-  badgeConnectingBg: "#261811",
-  badgeConnectedColor: "#4ade80",
-  badgeConnectedBg: "#14532d",
-  badgeErrorColor: "#fca5a5",
-  badgeErrorBg: "#7f1d1d",
-  claudeSoftBg: "#3a1e12",
-};
-
-const ThemeContext = createContext<ColorPalette>(LIGHT_PALETTE);
-
-export function useColors(): ColorPalette {
-  return useContext(ThemeContext);
-}
 
 function AppRouter() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -534,12 +467,48 @@ function ErrorCard({
   );
 }
 
+function PreviewApp() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const palette = theme === "dark" ? DARK_PALETTE : LIGHT_PALETTE;
+
+  return (
+    <ThemeContext.Provider value={palette}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: palette.bg,
+          transition: "background 150ms",
+        }}
+      >
+        <main
+          style={{
+            fontFamily:
+              "system-ui, -apple-system, 'Segoe UI', sans-serif",
+            padding: "1.5rem",
+            color: palette.text,
+            maxWidth: "52rem",
+            margin: "0 auto",
+          }}
+        >
+          <PreviewGallery
+            currentTheme={theme}
+            onToggleTheme={() =>
+              setTheme((t) => (t === "light" ? "dark" : "light"))
+            }
+          />
+        </main>
+      </div>
+    </ThemeContext.Provider>
+  );
+}
+
 if (typeof document !== "undefined") {
   const rootEl = document.getElementById("root");
   if (rootEl) {
+    const isPreview = window.location.hash === "#preview";
     createRoot(rootEl).render(
       <StrictMode>
-        <AppRouter />
+        {isPreview ? <PreviewApp /> : <AppRouter />}
       </StrictMode>,
     );
   }

@@ -26,9 +26,9 @@ Mark completed tasks with `- [x]` instead of removing them.
 - [x] spec-003: mock テストで consensus 3 分岐 + 部分失敗 + stance parse 失敗の 5 ケースを網羅する (**実際は 6 ケース** (a)-(f)、todo.md の "5 ケース" は数え間違いを正、追加で network throw / total_latency_ms / parseStanceResponse 7 ケース / computeConsensus 7 ケース / buildRevisionPrompt 3 ケースも同じ `src/council.test.ts` に集約、合計 25 tests 全 pass、vitest を devDep に追加 + `vitest.config.ts` 作成 + ralph.toml の `test_integration` にフック、2026-04-15)
 - [x] spec-003: curl 経由の E2E スモークで Round 1-2 / stance / consensus / 改訂指示文 3 系統が `content` に埋まることを確認する (port 3098 / stateless `tools/call` で 3 回実測、unanimous_agree と unanimous_disagree を E2E で確認 (latency 3986ms-8107ms)、mixed は実機では 2 モデルとも強い主張を reject してしまい engineering 困難 → 25 unit tests で網羅済みで補完、revision_prompt header が consensus 分岐で正しく切り替わり full transcript が structuredContent に入ることを確認、2026-04-15)
 - [x] spec-004: `src/components/ConsensusBadge.tsx` / `RoundTimeline.tsx` / `SpeakerCard.tsx` (stance タグ付き) / `RevisionFooter.tsx` (consensus 連動文言) を実装する (ConsensusBadge: consensus 色分け + stance count summary + skeleton、SpeakerCard: AnswerColumn 再利用 + StanceTag pill、RoundTimeline: Round 1 単列 + Round 2 CSS Grid 2 カラム responsive + total_latency + RevisionFooter、RevisionFooter: unanimous_agree 分岐で文言切替、main.tsx の CouncilBranchBody を RoundTimeline に置換、CouncilMetric を削除、tsc ✅ + vite build ✅ + vitest 39 pass、2026-04-16)
-- [ ] spec-004: mock data で consensus 3 バリエーション (unanimous_agree / mixed / unanimous_disagree) × 3 ツールのプレビューを手元確認する
+- [x] spec-004: mock data で consensus 3 バリエーション (unanimous_agree / mixed / unanimous_disagree) × 3 ツールのプレビューを手元確認する (`#preview` ハッシュで起動する `PreviewGallery` を追加、ask_claude / ask_gemini / council 3 variants + partial failure + loading の 7 セクション、テーマトグル付き、code-review の must-fix で theme.ts 切り出しによる循環依存解消、2026-04-16)
 - [ ] spec-004: basic-host で 3 ツールすべての実応答が正しく描画されることを確認する
-- [ ] spec-004: Review (build check + lint + `/code-review`)
+- [x] spec-004: Review (build check + lint + `/code-review`) (tsc ✅ / vite build 492KB ✅ / vitest 39 pass ✅ / code-review must-fix 1 件 (循環依存) を theme.ts 切り出しで解消、FR-9 (diff ライブラリ非導入) 確認済み、2026-04-16)
 - [ ] spec-005: Article 3 の OAuth 2.1 設定を Article 4 用に複製し、`fly.toml` を Article 4 アプリ名に書き換える
 - [ ] spec-005: Fly.io にデプロイし、`ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` / OAuth secrets を設定する
 - [ ] spec-005: ChatGPT Plus の Custom Connector に登録し、3 ツール全てが呼び出せることを実機確認する

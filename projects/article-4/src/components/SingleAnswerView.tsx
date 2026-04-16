@@ -1,5 +1,5 @@
 import { AnswerColumn } from "./AnswerColumn.js";
-import { useColors } from "../main.js";
+import { useColors } from "../theme.js";
 import type { SingleAnswerStructured } from "../ui-router.js";
 
 export type SingleAnswerProvider = "claude" | "gemini";

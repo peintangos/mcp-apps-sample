@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useColors } from "../main.js";
+import { useColors } from "../theme.js";
 import type { CouncilStructured } from "../ui-router.js";
 import { ConsensusBadge } from "./ConsensusBadge.js";
 import { SpeakerCard } from "./SpeakerCard.js";

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useColors } from "../main.js";
+import { useColors } from "../theme.js";
 
 export type AnswerColumnProps = {
   label: string;
