@@ -2,7 +2,7 @@
 # Each value is a shell command string or the literal string "N/A".
 
 test_primary = "npm test"
-test_integration = "N/A"
+test_integration = "cd projects/article-4 && npm test"
 build_check = "N/A"
 lint_check = "N/A"
 format_fix = "N/A"

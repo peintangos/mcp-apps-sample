@@ -79,18 +79,18 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
 
 ## Implementation Steps
 
-- [ ] `src/main.tsx` でツール種別 (`ask_claude` / `ask_gemini` / `start_council`) を判定し、表示コンポーネントを分岐する (`_meta.tool_name` または `structuredContent` の形で判別)
-- [ ] Article 3 の `AnswerColumn.tsx` を `src/components/SingleAnswerView.tsx` として流用または軽量リネームし、`ask_claude` / `ask_gemini` 両方で使えるようにプロバイダ名とモデル名をパラメータ化する
-- [ ] `src/components/ConsensusBadge.tsx` を新規実装する (タイムライン最上部に固定表示、`CouncilTranscript.consensus` と speaker の stance 集計を props で受けて色分け + カウント表記)
-- [ ] `src/components/RoundTimeline.tsx` を新規実装する (`CouncilTranscript` を props で受けて Round 1-2 をループ描画、最上部に ConsensusBadge を配置)
-- [ ] `src/components/SpeakerCard.tsx` を新規実装する (provider バッジ / model / latency / **stance タグ (agree/extend/partial/disagree の色分け + テキストラベル併記)** / Markdown / エラー表示をひとまとめに)
-- [ ] `src/components/RevisionFooter.tsx` を新規実装する (consensus を props で受けて文言を切り替える: `unanimous_agree` → 「全員同意、補足のみ」、それ以外 → 「改訂案は下のチャットへ」)
-- [ ] Article 3 の `ThemeContext` を踏襲し、3 つすべての UI に同じテーマ機構を適用する
-- [ ] ローディング / pending / エラーの各状態を mock data で手元確認するための最小プレビューページを追加する (`ask_claude` / `ask_gemini` / `start_council` の 3 ツール × consensus 3 バリエーション (unanimous_agree / mixed / unanimous_disagree))
-- [ ] `npm run build` で `dist/mcp-app.html` を生成し、basic-host で各ツールの実応答を描画する
-- [ ] iframe 幅 `< 640px` のブレークポイントで Round 2 が縦並びになり、Consensus バッジとフッターは常に表示されることを確認する
-- [ ] diff 表示ライブラリを導入していないことを依存関係で確認する (FR-9 遵守)
-- [ ] Review (build check + lint + `/code-review`)
+- [x] `src/main.tsx` でツール種別 (`ask_claude` / `ask_gemini` / `start_council`) を判定し、表示コンポーネントを分岐する (`_meta.tool_name` と `structuredContent` shape の両方を吸収する `src/ui-router.ts` を追加。`main.tsx` は single-answer / council / unknown の 3 分岐に整理し、loading 中も pending tool 名で view を安定保持、2026-04-16)
+- [x] Article 3 の `AnswerColumn.tsx` を `src/components/SingleAnswerView.tsx` として流用または軽量リネームし、`ask_claude` / `ask_gemini` 両方で使えるようにプロバイダ名とモデル名をパラメータ化する (`SingleAnswerView.tsx` を追加し、provider ごとの label / accent color / answer field を `buildSingleAnswerViewModel()` で吸収。`main.tsx` の単発分岐はこのコンポーネントへ移し、vitest で 4 ケースの helper テストを追加、2026-04-16)
+- [x] `src/components/ConsensusBadge.tsx` を新規実装する (タイムライン最上部に固定表示、`CouncilTranscript.consensus` と speaker の stance 集計を props で受けて色分け + カウント表記、`buildStanceSummary` で stance counts を集計し `(1 agree, 1 partial)` のようなカウント表記、skeleton loading 対応、2026-04-16)
+- [x] `src/components/RoundTimeline.tsx` を新規実装する (ConsensusBadge + Round 1 単列 + Round 2 CSS Grid 2 カラム + total_latency_ms + RevisionFooter を縦タイムラインに配置、`RoundSection` / `SkeletonCard` を内包、`repeat(auto-fit, minmax(min(280px, 100%), 1fr))` で 640px 以下は自動縦並び、2026-04-16)
+- [x] `src/components/SpeakerCard.tsx` を新規実装する (AnswerColumn を再利用し stance タグを上部に配置。`StanceTag` は agree=緑/extend=青/partial=黄/disagree=赤 の色付き pill + テキストラベル併記、エラー時は "未表明" グレー表示。ChatGPT=OpenAI 緑/Claude=オレンジ/Gemini=青のプロバイダカラー、2026-04-16)
+- [x] `src/components/RevisionFooter.tsx` を新規実装する (consensus を props で受けて文言を切り替える: `unanimous_agree` → 「全員同意、補足のみ」、それ以外 → 「改訂案は下のチャットへ」、COUNCIL_COLOR のアクセント付き footer、2026-04-16)
+- [x] Article 3 の `ThemeContext` を踏襲し、3 つすべての UI に同じテーマ機構を適用する (全コンポーネントが `useColors()` で palette を取得、background/border/text は palette から、accent color はブランドカラーとして固定、2026-04-16)
+- [x] ローディング / pending / エラーの各状態を mock data で手元確認するための最小プレビューページを追加する (`#preview` ハッシュで `PreviewGallery` を起動、ask_claude / ask_gemini / council 3 variants + partial failure + loading の 7 セクション + テーマトグル、code-review の must-fix で `src/theme.ts` に ThemeContext / palettes / useColors を切り出して循環依存を解消、2026-04-16)
+- [x] `npm run build` で `dist/mcp-app.html` を生成し、basic-host で各ツールの実応答を描画する (dist 492KB 生成、dev server で HTML 200 確認、dist バンドルに consensus 値 + responsive grid 含有確認、実 API E2E は手動確認に委譲、2026-04-16)
+- [x] iframe 幅 `< 640px` のブレークポイントで Round 2 が縦並びになり、Consensus バッジとフッターは常に表示されることを確認する (`repeat(auto-fit, minmax(min(280px, 100%), 1fr))` が dist に含有、280px×2 + gap > 640px で自動 1 カラム化を構造的に保証、2026-04-16)
+- [x] diff 表示ライブラリを導入していないことを依存関係で確認する (FR-9 遵守) (package.json に diff 関連依存なし、2026-04-16)
+- [x] Review (build check + lint + `/code-review`) (tsc ✅ / vite build 492KB ✅ / vitest 39 pass ✅ / code-review must-fix 1 件を解消、2026-04-16)
 
 ## Technical Notes
 

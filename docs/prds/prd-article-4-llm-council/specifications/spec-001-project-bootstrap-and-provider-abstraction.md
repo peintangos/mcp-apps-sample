@@ -35,16 +35,21 @@ Feature: Article 4 プロジェクトの土台と Provider 抽象
 
 ## Implementation Steps
 
-- [ ] `projects/article-4/` ディレクトリを作り、Article 3 から `package.json` / `tsconfig.json` / `vite.config.ts` / `server.ts` / `src/main.tsx` / `src/components/` / `src/mcp-app.html` / `.env.example` をコピーする
-- [ ] `projects/article-4/package.json` の `name` / `description` を Article 4 用に書き換え、Article 3 への依存が残っていないことを確認する
-- [ ] `src/providers/types.ts` を新規作成し、`Result<T>`, `ProviderError`, `ProviderClient`, `ProviderResponse` 型を定義する
-- [ ] `src/providers/claude.ts` を新規作成し、Article 3 の `src/claude.ts` のロジックを `ProviderClient` 実装として移植する (model identifier マッピング・401/429 判別・latency 計測を引き継ぐ)
-- [ ] `server.ts` の `ask_claude` tool handler を `claudeProvider.ask()` 経由に書き換え、**本番公開ツール** として登録する (Article 3 と同じ `{ question, chatgpt_answer?, model? }` schema を維持)
-- [ ] `npm install` + `npm run build` が成功することを確認する
-- [ ] curl で `ask_claude` を叩き、実 Claude 応答が Article 3 と同等に取れることを確認する
-- [ ] Article 3 の progress.md / knowledge.md / server.ts に一切影響を与えていないことを `git status` で確認する
-- [ ] `knowledge.md` に Provider 抽象の採用理由と Article 3 との差分を記録する
-- [ ] Review (build check + lint + `/code-review`)
+- [x] `projects/article-4/` ディレクトリを作り、Article 3 から `package.json` / `tsconfig.json` / `vite.config.ts` / `server.ts` / `src/main.tsx` / `src/components/` / `src/mcp-app.html` / `.env.example` / `Dockerfile` / `fly.toml` / `src/oauth.ts` / `src/claude.ts` / `.dockerignore` / `package-lock.json` を `rsync` で一括コピーした (`node_modules` / `dist` / `.env` を除外、2026-04-14)
+- [x] `projects/article-4/package.json` の `name` を `article-4-llm-council`、`description` を Article 4 向けに書き換え (2026-04-14)
+- [x] `tsconfig.json` と `vite.config.ts` は path-relative で Article 識別子を含まないため書き換え不要と判定 (2026-04-14)
+- [x] **Article 4 identity の MCP サーバ層書き換え** (task 本文の "package.json / tsconfig.json / vite.config.ts" に加えて identity 整合性のため拡張実施): `server.ts` の `UI_RESOURCE_URI` を `ui://llm-council/mcp-app.html`、`McpServer.name` を `article-4-llm-council`、`registerAppResource` のタイトル / 説明、4 箇所のログ prefix `[article-3]` を `[article-4]` に、`src/main.tsx` の `useApp.appInfo.name` と Header フッターを Article 4 に、`.env.example` のヘッダと Fly.io URL 例 2 件と spec-006 → spec-005 参照を更新 (2026-04-14)
+- [x] **デプロイ層は意図的に未着手**: `fly.toml` (app name / OAuth issuer / allowed_hosts の 5 行) と `src/oauth.ts` (`FIXED_CLIENT_ID = "article-3-mcp-client"`) は Fly.io app 名と OAuth client 登録が一体で、本番 Fly.io / ChatGPT 連携と合わせて扱うべきため spec-005 で書き換える (2026-04-14)
+- [x] `npm install` で 246 packages / 0 vulnerabilities、`npm run build` で `dist/mcp-app.html` 473.85 kB (gzip 140.46 kB) 生成を確認、`npx tsc --noEmit` もエラーなし (2026-04-14)
+- [x] `src/providers/types.ts` を新規作成し、`Result<T>`, `ProviderError`, `ProviderErrorCode`, `ProviderName`, `ProviderResponse`, `AskOptions<M>`, `ProviderClient<M>` 型を定義した。generic `M extends string = string` で各 provider が狭い model union (例: `"sonnet" | "opus"`) を束縛できる設計。ファイル内に外部 SDK import ゼロ、`tsc --noEmit` クリーン (2026-04-14)
+- [x] `src/providers/claude.ts` を新規作成し、Article 3 の `src/claude.ts` のロジックを `ProviderClient<ClaudeModel>` 実装として移植した。`ClaudeModel = keyof typeof MODEL_MAP` ("sonnet" | "opus")、model identifier マッピング・401/403/429 判別・latency 計測・cachedClient singleton すべて踏襲。`Result` / `ProviderError` / `ProviderResponse` / `AskOptions` は `./types.js` から import、ローカル型定義ゼロ (advisor 指摘の `Result<T>` シャドーイング回避、2026-04-14)
+- [x] 旧 `src/claude.ts` を `git rm` で削除した (Article 3 の `projects/article-3/src/claude.ts` は untouched、2026-04-14)
+- [x] `server.ts` の `ask_claude` tool handler を `claudeProvider.ask()` 経由に書き換え、`import { askClaude, type AskClaudeError }` → `import { claudeProvider } from "./src/providers/claude.js"` + `import type { ProviderError } from "./src/providers/types.js"` に差し替えた。schema は `{ question, model? }` で Article 3 の現行実装と同一 (`chatgpt_answer` は Article 3 も未実装だったため変更なし、2026-04-14)
+- [x] `npm run build` で `dist/mcp-app.html` 473.85 kB 生成、`npx tsc --noEmit` クリーン (2026-04-14)
+- [x] curl で `ask_claude` を叩いて実 Claude 応答を確認: PORT=3099 で article-4 サーバを起動し、`tools/call` リクエストで `structuredContent.claude_answer = "1+1は**2**です。"`、`model_used = "claude-sonnet-4-6"`、`latency_ms = 2895` を取得。Provider 抽象経由で実 API まで貫通 (2026-04-14)
+- [x] `git diff --name-only HEAD | grep article-3` と `git status --short | grep article-3` の両方が空で、Article 3 への副作用ゼロを確認 (2026-04-14)
+- [x] `knowledge.md` に Provider 抽象の採用理由 (generic M parameter の設計、SDK 依存ゼロの境界線)、Article 3 identity rewrite の境界線 (MCP サーバ層 vs デプロイ層)、`Result<T>` シャドーイング gotcha、curl スモークテストの実測値を記録 (2026-04-14)
+- [x] **Review** — build check: `npm run build` ✅ + `tsc --noEmit` ✅、lint: ralph.toml で N/A、code review: advisor レビュー 2 回実施 (types.ts / 最終)、エラー経路は code inspection で確認 (getClient が `ProviderError` を返すことを型で保証、runtime curl test は未実施 — spec-003 の mock テストで補完予定、2026-04-14)
 
 ## Technical Notes
 
