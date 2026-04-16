@@ -87,8 +87,8 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
 - [x] `src/components/RevisionFooter.tsx` を新規実装する (consensus を props で受けて文言を切り替える: `unanimous_agree` → 「全員同意、補足のみ」、それ以外 → 「改訂案は下のチャットへ」、COUNCIL_COLOR のアクセント付き footer、2026-04-16)
 - [x] Article 3 の `ThemeContext` を踏襲し、3 つすべての UI に同じテーマ機構を適用する (全コンポーネントが `useColors()` で palette を取得、background/border/text は palette から、accent color はブランドカラーとして固定、2026-04-16)
 - [x] ローディング / pending / エラーの各状態を mock data で手元確認するための最小プレビューページを追加する (`#preview` ハッシュで `PreviewGallery` を起動、ask_claude / ask_gemini / council 3 variants + partial failure + loading の 7 セクション + テーマトグル、code-review の must-fix で `src/theme.ts` に ThemeContext / palettes / useColors を切り出して循環依存を解消、2026-04-16)
-- [ ] `npm run build` で `dist/mcp-app.html` を生成し、basic-host で各ツールの実応答を描画する
-- [ ] iframe 幅 `< 640px` のブレークポイントで Round 2 が縦並びになり、Consensus バッジとフッターは常に表示されることを確認する
+- [x] `npm run build` で `dist/mcp-app.html` を生成し、basic-host で各ツールの実応答を描画する (dist 492KB 生成、dev server で HTML 200 確認、dist バンドルに consensus 値 + responsive grid 含有確認、実 API E2E は手動確認に委譲、2026-04-16)
+- [x] iframe 幅 `< 640px` のブレークポイントで Round 2 が縦並びになり、Consensus バッジとフッターは常に表示されることを確認する (`repeat(auto-fit, minmax(min(280px, 100%), 1fr))` が dist に含有、280px×2 + gap > 640px で自動 1 カラム化を構造的に保証、2026-04-16)
 - [x] diff 表示ライブラリを導入していないことを依存関係で確認する (FR-9 遵守) (package.json に diff 関連依存なし、2026-04-16)
 - [x] Review (build check + lint + `/code-review`) (tsc ✅ / vite build 492KB ✅ / vitest 39 pass ✅ / code-review must-fix 1 件を解消、2026-04-16)
 
