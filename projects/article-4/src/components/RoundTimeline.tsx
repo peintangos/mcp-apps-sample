@@ -26,7 +26,10 @@ export function RoundTimeline({ transcript, isLoading }: RoundTimelineProps) {
         isLoading={isLoading && !transcript}
       />
 
-      {/* Round 1: 3 者独立回答 (ChatGPT + Claude + Gemini) */}
+      {/* Round 1: 3 者独立回答 (ChatGPT + Claude + Gemini)
+       * ChatGPT の iframe 幅は ~500px 前後で 3 カラム grid が収まらず
+       * 2 カラム + 余り 1 段の不揃いレイアウトになるため、1 カラム縦積み固定にして
+       * ChatGPT 初案 → Claude → Gemini の読解順序を自然に保つ */}
       <RoundSection
         label="Round 1"
         subtitle="3 者の独立回答"
@@ -34,9 +37,8 @@ export function RoundTimeline({ transcript, isLoading }: RoundTimelineProps) {
       >
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
+            display: "flex",
+            flexDirection: "column",
             gap: "0.75rem",
           }}
         >
