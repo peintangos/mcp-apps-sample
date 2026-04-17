@@ -26,23 +26,36 @@ export function RoundTimeline({ transcript, isLoading }: RoundTimelineProps) {
         isLoading={isLoading && !transcript}
       />
 
-      {/* Round 1: ChatGPT Initial Answer */}
+      {/* Round 1: 3 者独立回答 (ChatGPT + Claude + Gemini) */}
       <RoundSection
         label="Round 1"
-        subtitle="ChatGPT の初案"
+        subtitle="3 者の独立回答"
         isLoading={isLoading && !round1}
       >
-        {round1 ? (
-          round1.speakers.map((speaker) => (
-            <SpeakerCard
-              key={speaker.name}
-              speaker={speaker}
-              showStance={false}
-            />
-          ))
-        ) : isLoading ? (
-          <SkeletonCard />
-        ) : null}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
+            gap: "0.75rem",
+          }}
+        >
+          {round1 ? (
+            round1.speakers.map((speaker) => (
+              <SpeakerCard
+                key={speaker.name}
+                speaker={speaker}
+                showStance={false}
+              />
+            ))
+          ) : isLoading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : null}
+        </div>
       </RoundSection>
 
       {/* Round 2: Independent Evaluations (2-column responsive) */}

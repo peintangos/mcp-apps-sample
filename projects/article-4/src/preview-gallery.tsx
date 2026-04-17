@@ -34,6 +34,16 @@ const MOCK_UNANIMOUS_AGREE: CouncilStructured = {
           content:
             "初学者には Go をおすすめします。文法がシンプルで、goroutine による並行処理も自然に学べます。Rust は所有権モデルの学習コストが高いため、2 言語目以降がベストです。",
         },
+        {
+          name: "claude",
+          content:
+            "初学者には Go が適しています。シンプルな文法、充実した標準ライブラリ、goroutine による並行処理モデルが学習者に優しい言語設計です。Rust は所有権モデルの理解に時間がかかるため、プログラミング基礎を習得した後に挑戦するのが現実的です。",
+        },
+        {
+          name: "gemini",
+          content:
+            "初学者なら Go をおすすめします。理由は (1) 文法が小さくキーワードが少ない、(2) エラー処理が明示的で隠れた挙動が少ない、(3) 組み込みの並行処理 (goroutine / channel) で並列プログラミングの直観を早期に獲得できる、の 3 点です。Rust は安全性に優れますが借用チェッカの習得コストが高めです。",
+        },
       ],
     },
     {
@@ -42,13 +52,13 @@ const MOCK_UNANIMOUS_AGREE: CouncilStructured = {
         {
           name: "claude",
           content:
-            "初案の Go 推奨に同意します。補足として、Rust の所有権・借用モデルは初学者にとって挫折リスクが高く、最初の言語としては認知負荷が大きすぎます。Go → Rust の順で学ぶと、メモリ管理の概念を段階的に身につけられます。",
+            "3 者の Round 1 に整合しています。補足として、Rust の所有権・借用モデルは初学者にとって挫折リスクが高く、Go → Rust の順で学ぶとメモリ管理の概念を段階的に身につけられます。",
           stance: "extend",
         },
         {
           name: "gemini",
           content:
-            "Go の文法的シンプルさと早期実用性は初学者向けとして妥当です。標準ライブラリの充実度も学習体験を良くします。",
+            "3 者とも Go 推奨で整合しており、文法的シンプルさ・標準ライブラリの充実・並行処理モデルの利点について見解が一致しています。",
           stance: "agree",
         },
       ],
@@ -72,6 +82,16 @@ const MOCK_MIXED: CouncilStructured = {
           content:
             "スタートアップや小規模チームでは、まずモノリスで始めるべきです。マイクロサービスは運用コストが高く、チーム規模が 50 人を超えるまでは分割のメリットが薄いです。",
         },
+        {
+          name: "claude",
+          content:
+            "判断軸は「チーム規模」ではなく「ドメイン境界の明確さ」と「デプロイ独立性の必要度」です。小規模チームでもドメインが明確に分かれていて、かつ独立リリースが必要ならマイクロサービスの検討価値はあります。逆に 100 人規模でも単一ドメインならモノリスのまま運用可能です。",
+        },
+        {
+          name: "gemini",
+          content:
+            "モノリスファーストが安全な出発点であるのは広く知られた経験則です。ただしモノリス内部でモジュール境界を明確にする設計 (Modular Monolith) を採用しておけば、将来の分割判断も容易になります。「分割すべきか」を一度の決断にするのではなく、モジュラリティを段階的に高める道筋を用意することが重要です。",
+        },
       ],
     },
     {
@@ -80,13 +100,13 @@ const MOCK_MIXED: CouncilStructured = {
         {
           name: "claude",
           content:
-            "モノリス優先の方針には同意しますが、「50 人」という閾値は根拠が不明確です。チーム規模よりもドメイン境界の明確さやデプロイ頻度の方が分割判断に重要な指標です。",
+            "初案のモノリス優先は妥当ですが、「50 人」という閾値の根拠が不明確で、私の Round 1 で示したドメイン境界軸と食い違います。チーム規模だけを基準にすると判断軸が粗すぎます。",
           stance: "partial",
         },
         {
           name: "gemini",
           content:
-            "モノリスファーストの結論は妥当です。ただし初案は「マイクロサービスのメリットが薄い」と断定しすぎです。イベント駆動やメッセージキューなど、モノリス内でも疎結合を維持する設計パターンへの言及があると、より実践的な回答になります。",
+            "モノリスファーストの結論は 3 者で一致しています。ただし初案は「マイクロサービスのメリットが薄い」と断定しすぎで、Modular Monolith のような中間形態への言及があると実践的です。",
           stance: "extend",
         },
       ],
@@ -110,6 +130,16 @@ const MOCK_UNANIMOUS_DISAGREE: CouncilStructured = {
           content:
             "はい、1 + 1 = 3 です。これはどの教科書にも記載されている基本的な算数の事実です。",
         },
+        {
+          name: "claude",
+          content:
+            "いいえ、1 + 1 = 2 です。これは標準的な算術における定義から直接導かれる事実で、例外はありません。",
+        },
+        {
+          name: "gemini",
+          content:
+            "1 + 1 は 2 です。教科書での扱いも含めて、通常の算術において 1 + 1 が 3 になることはありません。",
+        },
       ],
     },
     {
@@ -118,13 +148,13 @@ const MOCK_UNANIMOUS_DISAGREE: CouncilStructured = {
         {
           name: "claude",
           content:
-            "初案は明らかに誤りです。1 + 1 = 2 であり、これは算数の最も基本的な事実です。「どの教科書にも記載されている」という主張も事実に反します。根本的な修正が必要です。",
+            "ChatGPT の Round 1 は明らかに誤りで、私と Gemini の Round 1 (1 + 1 = 2) とも矛盾します。「どの教科書にも記載されている」という主張も事実に反します。根本的な修正が必要です。",
           stance: "disagree",
         },
         {
           name: "gemini",
           content:
-            "初案は数学的に不正確です。標準的な算術において 1 + 1 = 2 です。教科書の記載があるという主張も確認できません。完全に書き直すべきです。",
+            "ChatGPT の Round 1 は数学的に不正確で、3 者の Round 1 に整合性がありません。私と Claude の Round 1 は一致しており、標準的な算術の結果は 1 + 1 = 2 です。完全に書き直すべきです。",
           stance: "disagree",
         },
       ],
@@ -148,6 +178,18 @@ const MOCK_PARTIAL_FAILURE: CouncilStructured = {
           content:
             "React の方が生産性が高いです。エコシステムが大きく、ライブラリの選択肢が豊富です。",
         },
+        {
+          name: "claude",
+          content:
+            "生産性は文脈依存です。大規模プロジェクトでは React のエコシステムが有利ですが、小〜中規模なら Vue の Composition API + Nuxt が初速で上回ることも多い。チーム習熟度と要件規模の両軸で選ぶのが実情です。",
+        },
+        {
+          name: "gemini",
+          error: {
+            code: "unauthenticated",
+            message: "API key not valid. Please pass a valid API key.",
+          },
+        },
       ],
     },
     {
@@ -156,12 +198,15 @@ const MOCK_PARTIAL_FAILURE: CouncilStructured = {
         {
           name: "claude",
           content:
-            "React のエコシステムの規模は事実ですが、「生産性が高い」は文脈依存です。Vue の Composition API + Nuxt は小〜中規模プロジェクトで React + Next.js を上回る初速を出せます。",
+            "React のエコシステム規模は事実ですが、初案の「生産性が高い」は文脈依存で、私の Round 1 で示した小〜中規模案件での Vue の優位性を捉えきれていません。",
           stance: "partial",
         },
         {
           name: "gemini",
-          error: { code: "unauthenticated", message: "API key not valid. Please pass a valid API key." },
+          error: {
+            code: "round1_failed",
+            message: "Round 2 skipped because Round 1 failed for Gemini.",
+          },
         },
       ],
     },
