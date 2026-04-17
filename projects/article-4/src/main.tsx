@@ -220,14 +220,17 @@ function Body({
     );
   }
 
+  // view.kind === "unknown" — tool 名が未確定。
+  // pending 中は中立の loading UI を出し、結果受信後は生テキスト表示にフォールバックする。
+  if (isToolRunning) {
+    return <InfoCard text="ツールを呼んでいます…" />;
+  }
+
+  const fallbackText = toolResult?.content?.find(
+    (block): block is { type: "text"; text: string } => block.type === "text",
+  )?.text;
   return (
-    <RawResultCard
-      text={
-        toolResult?.content?.find(
-          (block): block is { type: "text"; text: string } => block.type === "text",
-        )?.text ?? "(no text)"
-      }
-    />
+    <RawResultCard text={fallbackText ?? "(結果を表示できませんでした)"} />
   );
 }
 
@@ -368,6 +371,16 @@ function getHeaderTheme(view: ToolView): {
     };
   }
 
+  if (view.kind === "single_answer" && view.provider === "claude") {
+    return {
+      title: "Claude の答え",
+      subtitle:
+        "Single-answer branch for ask_claude · Article 4",
+      color: CLAUDE_COLOR,
+      strongColor: CLAUDE_COLOR_STRONG,
+    };
+  }
+
   if (view.kind === "council") {
     return {
       title: "LLM Council",
@@ -378,12 +391,12 @@ function getHeaderTheme(view: ToolView): {
     };
   }
 
+  // view.kind === "unknown" — ツール名が未確定のローディング/フォールバック
   return {
-    title: "Claude の答え",
-    subtitle:
-      "Single-answer branch for ask_claude · Article 4",
-    color: CLAUDE_COLOR,
-    strongColor: CLAUDE_COLOR_STRONG,
+    title: "Article 4 MCP App",
+    subtitle: "Claude + Gemini + ChatGPT 合議デモ",
+    color: COUNCIL_COLOR,
+    strongColor: COUNCIL_COLOR_STRONG,
   };
 }
 
