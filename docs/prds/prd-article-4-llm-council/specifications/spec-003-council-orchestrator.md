@@ -1,50 +1,59 @@
-# spec-003: Synthesizer 型 Round 1-2 合議オーケストレータ + stance-based 独立評価 + consensus 分岐
+# spec-003: 擬似合議型 Round 1-2 オーケストレータ (3 者独立回答 + 相互参照 stance + consensus 分岐)
 
 ## Overview
 
-`src/council.ts` に、**Round 1 (ChatGPT 初案の記録) + Round 2 (Claude / Gemini 並列独立評価 + stance 表明)** の 2 ラウンド構成の Synthesizer 型合議を実装する。Round 2 の各モデルには「批判ではなく独立評価」を求め、`agree` / `extend` / `partial` / `disagree` の 4 値 stance と理由本文を構造化フォーマットで返させる。サーバーは Round 2 の stance 集計から `consensus` (`unanimous_agree` / `mixed` / `unanimous_disagree`) を導出し、その結果に応じて **3 系統の改訂指示** を `content` フィールドに埋め込む。Round 3 (改訂案) はサーバーで生成せず ChatGPT 本人に書かせる。`start_council` ツールを server.ts に登録し、`CouncilTranscript` を `structuredContent` に返す。Round 2 は `Promise.allSettled` で並列化し、部分失敗でも合議を継続する。
+`src/council.ts` に、**Round 1 (ChatGPT / Claude / Gemini の 3 者独立並列回答) + Round 2 (Claude / Gemini が Round 1 の 3 者全員を相互参照して stance 表明)** の擬似合議型オーケストレータを実装する。ChatGPT MCP App の 1 ターン制約 (ユーザーに何度も tool 再呼び出しを頼むのが UX 的に不自然) の下で "合議" を成立させるため、1 tool call 内に 2 ラウンドを閉じ込める設計にしている。
+
+Round 1 は 3 者が互いを見ずに回答する独立並列。Round 2 は Claude / Gemini が自分自身の Round 1 + 他 2 者の Round 1 を見て、3 者の Round 1 に対する整合性 (`agree` / `extend` / `partial` / `disagree` の 4 値 stance + 理由本文) を構造化フォーマットで返す。anchoring が相互にかかることで、Synthesizer 型で問題だった "ChatGPT の初案に対するバイアス" を打ち消す狙い。
+
+サーバーは Round 2 の stance 集計から `consensus` (`unanimous_agree` / `mixed` / `unanimous_disagree`) を導出し、その結果に応じて **3 系統の改訂指示** を Round 1 の 3 者引用 + Round 2 の stance 引用つきで `content` フィールドに埋め込む。Round 3 (改訂案) はサーバーで生成せず ChatGPT 本人に書かせる。`start_council` ツールを server.ts に登録し、`CouncilTranscript` を `structuredContent` に返す。Round 1 も Round 2 も `Promise.allSettled` で並列化し、部分失敗でも合議を継続する。Round 1 で失敗した speaker の Round 2 は自動 skip (`error.code = "round1_failed"`)。
+
+### 設計経緯
+
+初版 (2026-04-15〜16) は Synthesizer 型 (Round 1 = ChatGPT 初案のみ / Round 2 = ChatGPT 初案に対する評価) で実装し done としたが、「Claude / Gemini が ChatGPT の回答を見せられてから評価する」構造は sycophancy と anchoring を回避しきれず、"合議" というより "ChatGPT の回答への査定" になっていた (2026-04-17 の議論)。そこで Round 1 を 3 者独立並列に変更し、Round 2 で相互参照した上で stance を求める擬似合議型に再設計した。
 
 ## Acceptance Criteria
 
 ```gherkin
-Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + consensus 分岐)
+Feature: 擬似合議型 Round 1-2 オーケストレータ (3 者独立回答 + 相互参照 stance + consensus 分岐)
 
   Background:
     spec-001 / spec-002 が完了し、Claude / Gemini Provider が `ProviderClient` として利用可能
     `ANTHROPIC_API_KEY` と `GOOGLE_API_KEY` が設定済み
 
-  Scenario: 正常系 — Round 1-2 成功 + stance 集計 + 改訂指示の埋め込み
+  Scenario: 正常系 — Round 1 = 3 者独立並列 + Round 2 = 相互参照 stance + 改訂指示の埋め込み
     Given `start_council({ question: "Rust と Go どちらを学ぶべきか", chatgpt_initial_answer: "..." })` を呼ぶ
     When オーケストレータが Round 1-2 を順に実行する
     Then `CouncilTranscript.rounds` の配列長が 2 になる
-    And Round 1 の speakers は ChatGPT 1 人のみで、`content` は `chatgpt_initial_answer` がそのまま入り `stance` は持たない
+    And Round 1 の speakers は 3 人 (ChatGPT / Claude / Gemini) で、ChatGPT は `chatgpt_initial_answer` がそのまま入り、Claude と Gemini は独立並列に呼ばれた回答本文が入る。Round 1 の speakers は `stance` を持たない
     And Round 2 の speakers は Claude と Gemini の 2 人で、両方 `content` と `stance` が入る
+    And Round 2 の各 speaker には自分自身の Round 1 + 他 2 者の Round 1 が Round 2 プロンプトで参照として渡される
     And `stance` は `"agree" | "extend" | "partial" | "disagree"` のいずれか
     And `CouncilTranscript.consensus` に `"unanimous_agree" | "mixed" | "unanimous_disagree"` のいずれかが入る
     And `CouncilTranscript.revision_prompt` に consensus に応じた改訂指示テンプレートが入る
-    And tool 応答の `content` フィールド (ChatGPT が読むプレーンテキスト) に Round 1-2 サマリ + 明示的な改訂指示 (consensus 分岐済) が埋まっている
-    And `total_latency_ms` は Round 2 の並列実行を反映する
+    And tool 応答の `content` フィールド (ChatGPT が読むプレーンテキスト) に Round 1 (3 者引用) + Round 2 (stance 引用) サマリ + 明示的な改訂指示 (consensus 分岐済) が埋まっている
+    And `total_latency_ms` は Round 1 → Round 2 の直列実行 + 各ラウンド内の並列効果を反映する
     And `final_answer` フィールドは `CouncilTranscript` に存在しない
 
   Scenario: Unanimous agree — 改訂不要を誘導する
     Given Round 2 で Claude と Gemini の両方が `stance: "agree"` (または `"extend"`) を返す
     When オーケストレータが consensus を計算する
     Then `consensus` が `"unanimous_agree"` になる
-    And `revision_prompt` に「他 2 モデルも初案に同意しました。改訂は原則不要です。補足視点があれば 1-2 行だけ追記してください」相当の文言が入る
+    And `revision_prompt` に「Round 2 で Claude / Gemini とも 3 者の Round 1 が整合していると判断しました。改訂は原則不要です。補足視点があれば 1-2 行だけ追記してください」相当の文言が入る
     And tool 応答の `content` にその文言がそのまま埋まる
 
   Scenario: Mixed — 標準の改訂誘導
     Given Round 2 で Claude が `stance: "agree"`、Gemini が `stance: "partial"` を返す
     When オーケストレータが consensus を計算する
     Then `consensus` が `"mixed"` になる
-    And `revision_prompt` に「Round 2 の論点を踏まえ、初案を改訂してください」相当の文言が入る
+    And `revision_prompt` に「3 者の Round 1 に不整合がある、以下の論点を踏まえて初案を改訂してください」相当の文言が入る
     And Round 2 の各 speaker の stance と理由が改訂指示の中に引用される
 
   Scenario: Unanimous disagree — 根本書き直しを誘導する
     Given Round 2 で Claude と Gemini の両方が `stance: "disagree"` を返す
     When オーケストレータが consensus を計算する
     Then `consensus` が `"unanimous_disagree"` になる
-    And `revision_prompt` に「他 2 モデルとも初案に重大な問題を指摘しています。根本から書き直してください」相当の文言が入る
+    And `revision_prompt` に「3 者の Round 1 が大きく食い違っている。Round 2 で Claude / Gemini とも 3 者の Round 1 の整合性に重大な問題を指摘している。根本から書き直してください」相当の文言が入る
 
   Scenario: Round 2 の構造化出力が壊れていた場合
     Given Claude が stance フィールドを欠いたレスポンスを返した
@@ -53,21 +62,32 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
     And consensus 計算では欠損した speaker は除外される (利用可能な speaker のみで判定)
     And 利用可能な speaker が 0 人の場合は `consensus` を `"mixed"` (デフォルト) に倒し、`content` には注意書きを添える
 
-  Scenario: Round 2 の部分失敗でも合議は継続する
-    Given Gemini API が 401 を返す
-    And Claude API は正常応答し `stance: "agree"` を返す
+  Scenario: Round 1 部分失敗 → 該当 speaker の Round 2 は自動 skip
+    Given Gemini API が Round 1 で 401 を返す
+    And Claude API は Round 1 で正常応答する
     When `start_council(...)` を呼ぶ
-    Then Round 2 の Gemini speaker は `error.code: "unauthenticated"` が入り stance は未設定
-    And Round 2 の Claude speaker は通常通り content と stance が入る
-    And consensus は Claude の stance のみから導出され、単独の `"unanimous_agree"` とはせず `"mixed"` に倒す (1 モデルだけでは unanimous を名乗れない)
-    And tool 応答の `content` に埋められる改訂指示は、利用可能な speaker (Claude) の発言のみを引用する
+    Then Round 1 の Gemini speaker には `error.code: "unauthenticated"` が入り、`content` は undefined
+    And Round 1 の Claude speaker には `content` が入り `error` は undefined
+    And Round 2 の Gemini speaker は自動 skip され、`error.code: "round1_failed"` が入り `stance` は undefined (Round 2 API は呼ばれない)
+    And Round 2 の Claude speaker は通常通り `content` と `stance` が入る
+    And consensus は Claude の stance のみから導出され、単独の `"unanimous_agree"` とはせず `"mixed"` に倒す
+    And tool 応答の `content` の Round 1 引用では Gemini の Round 1 が "(回答取得失敗)" と表示される
     And `isError` は `false`
 
-  Scenario: Round 2 が両方失敗した場合
-    Given Claude API も Gemini API も失敗する (401 / 500)
+  Scenario: Round 2 の provider error — Round 1 は成功していても Round 2 API 呼び出しで失敗
+    Given Round 1 で Claude / Gemini とも正常応答
+    And Round 2 の Claude API 呼び出しが 429 を返す
     When `start_council(...)` を呼ぶ
-    Then `isError: true` が返る
-    And `structuredContent.error` に両 Speaker の失敗内容がまとめて入る
+    Then Round 2 の Claude speaker には `error.code: "rate_limited"` が入る (`"round1_failed"` ではない)
+    And Round 1 の Claude / Gemini は通常通り content が入る
+
+  Scenario: Round 1 両方失敗 + Round 2 も両方 skip
+    Given Claude API も Gemini API も Round 1 で失敗する (401 / 500)
+    When `start_council(...)` を呼ぶ
+    Then Round 1 の Claude / Gemini speaker にはそれぞれ provider error が入る
+    And Round 2 の Claude / Gemini speaker は両方 `error.code: "round1_failed"` で skip
+    And `isError: true` が返る
+    And `structuredContent.error` に失敗内容がまとめて入る
 
   Scenario: `chatgpt_initial_answer` が空文字
     Given `start_council({ question: "X", chatgpt_initial_answer: "" })` を呼ぶ
@@ -85,7 +105,7 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
     Given 正常系の合議結果 (consensus = mixed)
     When ChatGPT が tool 応答を受け取る
     Then `content` フィールドに consensus に応じた改訂指示が含まれる
-    And 指示文には Round 1 (初案) と Round 2 (Claude / Gemini の stance + 理由) の要点が引用されている
+    And 指示文には Round 1 (ChatGPT / Claude / Gemini の 3 者独立回答) と Round 2 (Claude / Gemini の stance + 理由) の要点が引用されている
     And 指示文は iframe の `structuredContent` とは別に、ChatGPT のプロンプトとして直接機能する
 ```
 
@@ -116,12 +136,27 @@ Feature: stance-based 独立評価合議オーケストレータ (Round 1-2 + co
 - [x] `revision_prompt` の 3 系統の例を `knowledge.md` に記録する (将来のチューニング用) (unanimous_agree / mixed / unanimous_disagree の header 部分 3 系統 + 共通構造 (header + 初案引用 + Round 2 引用 + tail instruction) を `knowledge.md` のリファレンスセクションに追記、unit smoke 4 ケースで 324〜540 chars の出力を確認済み、2026-04-15)
 - [x] Review (build check + lint + `/code-review`) (`npm test` ✅, `cd projects/article-4 && npm test` ✅ (26 tests), `cd projects/article-4 && npm run build` ✅, lint は repo registry 上 N/A、コードレビューで Round 2 全失敗時に `structuredContent.error` が欠ける差分を修正済み、2026-04-16)
 
+### 擬似合議型への再設計 (2026-04-17)
+
+初版の Synthesizer 型 (Round 1 = ChatGPT 初案のみ / Round 2 = ChatGPT 初案への評価) を、擬似合議型 (Round 1 = 3 者独立 / Round 2 = 相互参照 stance) に書き換える。
+
+- [x] `runCouncil` の Round 1 を 3 者独立並列に拡張 (Claude / Gemini に `input.question` を `Promise.allSettled` で並列投げ、ChatGPT 初案と合わせて 3 speaker を `round_1` に記録、2026-04-17)
+- [x] Round 2 のプロンプトを speaker 別に生成する signature に変更 (`buildRound2Prompt(input, selfName, round1Speakers)`、self の Round 1 + 他 2 者の Round 1 をプロンプト本文に引用、同意も正当な出力であると明示する文言は維持、2026-04-17)
+- [x] Round 1 で失敗した speaker の Round 2 は API を呼ばず `error.code = "round1_failed"` で自動 skip する仕組みを `runRound2ForSpeaker` に実装 (2026-04-17)
+- [x] council 層固有エラーコード `CouncilErrorCode = ProviderErrorCode | "round1_failed"` と `CouncilSpeakerError` を追加 (provider 層の `ProviderErrorCode` を汚さないため) (2026-04-17)
+- [x] `buildRevisionPrompt` を Round 1 の 3 者引用 (`formatRound1Quote`) を含む形に拡張し、header 文言を「ChatGPT 初案の是非」から「3 者の Round 1 整合性」ベースに書き換え (2026-04-17)
+- [x] `start_council` tool descriptor (`server.ts`) を擬似合議型に書き直し (Round 1 = 3 者独立 / Round 2 = 相互参照 stance / Round 1 failure → Round 2 skip の契約を明記、2026-04-17)
+- [x] `src/council.test.ts` を擬似合議型前提に書き直し: (a) `mockOkProvider` を Round 1 / Round 2 で別応答を返す 2-step モックに変更 (b) Round 1 failure → Round 2 skip (round1_failed) の検証を case (d) / (e) / network throw に差し替え (c) Round 1 ok + Round 2 provider error の新 case (e2) を追加 (d) `buildRevisionPrompt` の Round 1 3 者引用テストと Round 1 failure 時の "(回答取得失敗)" fallback テストを追加 (e) `makeTranscript` helper に Round 1 overrides 引数を追加 (最終 29 council tests / 全 44 tests pass、2026-04-17)
+
 ## Technical Notes
 
+- **Round 1 を 3 者独立並列にした理由 (擬似合議型への再設計)**: 初版の Synthesizer 型は Round 1 = ChatGPT 初案のみ / Round 2 = ChatGPT 初案への stance 評価だった。これは anchoring と sycophancy を回避しきれず「合議」ではなく「ChatGPT への査定」になっていた。Round 1 を 3 者独立に変えることで、Claude / Gemini は互いにも ChatGPT にも引っ張られずに独立回答する。Round 2 で初めて 3 者の Round 1 を見せて相互参照させる。anchoring が相互にかかるため偏りが打ち消される
+- **ChatGPT MCP App の 1 ターン制約**: ChatGPT は tool 呼び出しを通常 1 回しかループしない。ユーザーに「もう一度 `start_council` を呼んで」と言わせるのは UX として成立しない。そのため真のマルチターン合議 (各モデルが何度も発言→反応→再発言) は諦め、server 側で 1 tool call 内に 2 ラウンドを閉じ込める "擬似合議" を採用する
 - **Round 2 を "批判" ではなく "独立評価" にする理由**: 批判を強制するプロンプトは LLM-as-critic の既知の 3 失敗モード (sycophancy flip / confabulated disagreement / confirmation signal の喪失) を引き起こす。同意も正当な出力として扱うことで、初案が正しいケースで Round 3 が正しい初案を劣化させる逆効果を防ぐ
 - **Round 3 をサーバーで生成しない理由**: ユーザーとの合意 (案 B) により、Round 3 の話者は必ず ChatGPT 本人。サーバーが Claude / Gemini を synthesizer として再利用すると "ChatGPT の思考が磨かれる" というナラティブが "Claude が最終回答を書く" に変わってしまう
-- **構造化出力の取り方**: Claude は `tool_use` 的な JSON モードが使える。Gemini は `responseSchema` (Google AI Studio) がある。両者で統一した形で `{ stance, reason }` を取れるよう、`src/council.ts` 側で吸収する。難しければ "以下の JSON 形式で答えよ" という strong prompt + `JSON.parse` の fallback 実装でも可
-- **`revision_prompt` の設計指針**: ChatGPT が tool 応答を読んで "次の発話として自分の改訂案を書きたくなる" プロンプトを書く。`content` フィールドは ChatGPT のプロンプトの一部として解釈されるため、命令形 + Round 1-2 の要点引用 + 期待フォーマットの 3 要素を入れる。consensus に応じて命令部分を切り替えるのが本 spec の肝
+- **Round 1 failure → Round 2 skip (`round1_failed`) の意味**: Round 2 は "自分自身の Round 1 + 他 2 者の Round 1" を引用するプロンプトで stance を求める。自分の Round 1 が無い状態で Round 2 を回すと、プロンプトが自己参照破綻するため Round 2 API を呼ばずに skip する。skip の事実を UI / `revision_prompt` で明示するために council 層固有の `round1_failed` code を用意している
+- **構造化出力の取り方**: Claude は `tool_use` 的な JSON モードが使える。Gemini は `responseSchema` (Google AI Studio) がある。両者で統一した形で `{ stance, reason }` を取れるよう、`src/council.ts` 側で吸収する。難しければ "以下の JSON 形式で答えよ" という strong prompt + `JSON.parse` の fallback 実装でも可 (初版は後者で実装済み)
+- **`revision_prompt` の設計指針**: ChatGPT が tool 応答を読んで "次の発話として自分の改訂案を書きたくなる" プロンプトを書く。`content` フィールドは ChatGPT のプロンプトの一部として解釈されるため、命令形 + Round 1 (3 者引用) + Round 2 (stance 引用) + 期待フォーマットの 4 要素を入れる。consensus に応じて命令部分を切り替えるのが本 spec の肝
 - **単独 speaker の unanimous を名乗らない理由**: Round 2 で 1 モデルしか成功しなかった場合に「unanimous_agree」と判定すると実態を誤魔化すため、2 人以上の成功を必須条件とする
-- `max_tokens` は Round 2 で 512 を目安にする (stance + reason で足りる)
-- `total_latency_ms` は `Date.now()` ベースで計測し、並列効果を `knowledge.md` に記録する
+- `max_tokens` は override せず各 provider の `DEFAULT_MAX_TOKENS` に委ねる (Claude 1024 / Gemini 4096)。Gemini 2.5 flash は hidden thinking で 512 だと stance JSON が truncate されるため
+- `total_latency_ms` は Round 1 → Round 2 の直列 + 各ラウンド内の並列効果を反映する。Round 1 の並列と Round 2 の並列を直列に積むので Synthesizer 型より遅くなる (倍ではないが 1.5〜1.8 倍が目安)

@@ -30,9 +30,10 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
     Given サーバーが `CouncilTranscript` (Round 1-2 成功、consensus = "mixed") を返す
     When UI が受信する
     Then 画面最上部に Consensus バッジが黄色基調で表示され、`Mixed (1 agree, 1 partial)` のようなカウント表記が出る
-    And Round 1 は 1 カラムに ChatGPT 初案が Markdown で描画される
-    And Round 2 は横並び 2 カラムに Claude / Gemini の独立評価が描画される
-    And 各 Speaker ブロックの上部に stance タグ (agree / extend / partial / disagree) が大きく色分け表示される
+    And Round 1 は 3 カラム (ChatGPT / Claude / Gemini) に 3 者独立回答が Markdown で描画される (responsive で iframe 幅に応じて 1-3 カラムに切り替わる)
+    And Round 1 の各 Speaker には stance タグは出ない (Round 1 は独立回答のみで stance を持たない)
+    And Round 2 は横並び 2 カラムに Claude / Gemini の相互参照 stance が描画される
+    And Round 2 の各 Speaker ブロックの上部に stance タグ (agree / extend / partial / disagree) が大きく色分け表示される
     And 各 Speaker ブロックにはプロバイダ名・モデル名・個別レイテンシがヘッダに表示される
     And タイムライン末尾に "Round 3 — ChatGPT 改訂案は下のチャットメッセージに出力されます" という固定フッターが出る
     And diff 表示関連の UI は一切存在しない
@@ -57,18 +58,20 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
     Then Round 2 の 2 カラムは上下の 2 段に折り返される
     And Consensus バッジとフッターは幅に関係なく常に表示される
 
-  Scenario: Speaker 単位の失敗表示 (start_council)
-    Given Round 2 の Gemini が `error.code: "unauthenticated"` で失敗した `CouncilTranscript` を受け取る
+  Scenario: Speaker 単位の失敗表示 (start_council) — Round 1 で Gemini が失敗
+    Given Round 1 の Gemini が `error.code: "unauthenticated"` で失敗した `CouncilTranscript` を受け取る
+    And Round 2 の Gemini が自動 skip で `error.code: "round1_failed"` になっている
     When UI が描画される
-    Then Gemini の Speaker ブロックは赤背景で `error.code` と `error.message` を表示し、stance タグは "未表明" のラベルになる
-    And Claude の Speaker ブロックは通常通り stance タグ付きで描画される
-    And Consensus バッジは Claude の stance 1 件のみから導出された表記 (例: `Partial (1 agree, 1 failed)`) になる
+    Then Round 1 の Gemini Speaker ブロックは赤背景で `error.code` と `error.message` を表示する (stance タグは出ない)
+    And Round 2 の Gemini Speaker ブロックも赤背景で `round1_failed` を表示し stance タグは "未表明" になる
+    And Round 1 / Round 2 の Claude は通常通り描画される
+    And Consensus バッジは Claude の stance 1 件のみから導出された表記 (例: `Mixed (1 agree, 1 failed)`) になる
     And 改訂誘導フッターは通常通り表示される
 
   Scenario: ローディング表示 (start_council)
     Given UI が合議結果の受信待ち
     Then Consensus バッジは skeleton 表示
-    And Round 1 / Round 2 すべてが skeleton 表示される
+    And Round 1 は 3 枚 skeleton、Round 2 は 2 枚 skeleton が表示される
     And 未開始ラウンドは薄いグレーで "pending" ラベルが出る
 
   Scenario: ダーク / ライトテーマに追従する
@@ -83,6 +86,7 @@ Feature: ツール別 UI 描画分岐 + stance-based 合議 UI
 - [x] Article 3 の `AnswerColumn.tsx` を `src/components/SingleAnswerView.tsx` として流用または軽量リネームし、`ask_claude` / `ask_gemini` 両方で使えるようにプロバイダ名とモデル名をパラメータ化する (`SingleAnswerView.tsx` を追加し、provider ごとの label / accent color / answer field を `buildSingleAnswerViewModel()` で吸収。`main.tsx` の単発分岐はこのコンポーネントへ移し、vitest で 4 ケースの helper テストを追加、2026-04-16)
 - [x] `src/components/ConsensusBadge.tsx` を新規実装する (タイムライン最上部に固定表示、`CouncilTranscript.consensus` と speaker の stance 集計を props で受けて色分け + カウント表記、`buildStanceSummary` で stance counts を集計し `(1 agree, 1 partial)` のようなカウント表記、skeleton loading 対応、2026-04-16)
 - [x] `src/components/RoundTimeline.tsx` を新規実装する (ConsensusBadge + Round 1 単列 + Round 2 CSS Grid 2 カラム + total_latency_ms + RevisionFooter を縦タイムラインに配置、`RoundSection` / `SkeletonCard` を内包、`repeat(auto-fit, minmax(min(280px, 100%), 1fr))` で 640px 以下は自動縦並び、2026-04-16)
+- [x] **擬似合議型への追従 (2026-04-17)**: `RoundTimeline.tsx` の Round 1 を 3 者描画 (CSS Grid 3 カラム responsive + SkeletonCard 3 枚) に拡張し、subtitle を「ChatGPT の初案」から「3 者の独立回答」に変更。`preview-gallery.tsx` の 4 つの MOCK data (unanimous_agree / mixed / unanimous_disagree / partial_failure) に Claude / Gemini の Round 1 独立回答を追加し、Round 2 の reason 本文も「3 者の Round 1 整合性」ベースに書き直し。MOCK_PARTIAL_FAILURE は Gemini が Round 1 で `unauthenticated` → Round 2 で `round1_failed` skip のパターンに変更。SpeakerCard / ConsensusBadge / RevisionFooter 本体は Round 1 が 3 speakers 入るだけで互換性があり変更不要。tsc ✅ / vite build 494KB ✅ / vitest 44 pass ✅
 - [x] `src/components/SpeakerCard.tsx` を新規実装する (AnswerColumn を再利用し stance タグを上部に配置。`StanceTag` は agree=緑/extend=青/partial=黄/disagree=赤 の色付き pill + テキストラベル併記、エラー時は "未表明" グレー表示。ChatGPT=OpenAI 緑/Claude=オレンジ/Gemini=青のプロバイダカラー、2026-04-16)
 - [x] `src/components/RevisionFooter.tsx` を新規実装する (consensus を props で受けて文言を切り替える: `unanimous_agree` → 「全員同意、補足のみ」、それ以外 → 「改訂案は下のチャットへ」、COUNCIL_COLOR のアクセント付き footer、2026-04-16)
 - [x] Article 3 の `ThemeContext` を踏襲し、3 つすべての UI に同じテーマ機構を適用する (全コンポーネントが `useColors()` で palette を取得、background/border/text は palette から、accent color はブランドカラーとして固定、2026-04-16)
