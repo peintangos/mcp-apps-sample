@@ -18,6 +18,8 @@ primary_region = "nrt"  # Narita — 著者が東京近郊なので
 [env]
   PORT = "3001"
   MCP_HOST = "0.0.0.0"
+  DEMO_MODE = "true"
+  DEMO_DAILY_CAP = "200"
 
 [http_service]
   internal_port = 3001

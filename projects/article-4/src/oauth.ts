@@ -44,6 +44,8 @@ type CodeEntry = {
 type TokenEntry = {
   clientId: string;
   expiresAt: number;
+  requestCount: number;
+  windowStart: number;
 };
 
 // ---- ストレージ (インメモリ) -------------------------------------------
@@ -412,6 +414,8 @@ export function exchangeCodeForToken(req: Request, res: Response): void {
   tokens.set(accessToken, {
     clientId: entry.clientId,
     expiresAt: Date.now() + TOKEN_TTL_MS,
+    requestCount: 0,
+    windowStart: Date.now(),
   });
 
   res.json({
@@ -421,6 +425,15 @@ export function exchangeCodeForToken(req: Request, res: Response): void {
     scope: "",
   });
 }
+
+// ---- レート制限 -------------------------------------------------------
+
+const PER_TOKEN_LIMIT = 20; // calls per hour per token
+const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const DAILY_CAP = Number(process.env.DEMO_DAILY_CAP || 0);
+let globalDailyCount = 0;
+let globalDayStart = Date.now();
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ---- ミドルウェア: access_token 検証 -----------------------------------
 
@@ -458,6 +471,47 @@ export function verifyAccessToken(
     sendChallenge("invalid_token", "Access token is invalid or expired");
     return;
   }
+
+  // Global daily cap (0 = unlimited)
+  if (DAILY_CAP > 0) {
+    const now = Date.now();
+    if (now - globalDayStart > DAY_MS) {
+      globalDailyCount = 0;
+      globalDayStart = now;
+    }
+    if (globalDailyCount >= DAILY_CAP) {
+      res.status(429).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: "Demo budget exhausted for today. Please try again tomorrow.",
+        },
+        id: null,
+      });
+      return;
+    }
+    globalDailyCount++;
+  }
+
+  // Per-token rate limit
+  const now = Date.now();
+  if (now - entry.windowStart > RATE_WINDOW_MS) {
+    entry.requestCount = 0;
+    entry.windowStart = now;
+  }
+  entry.requestCount++;
+  if (entry.requestCount > PER_TOKEN_LIMIT) {
+    res.status(429).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: `Rate limit exceeded. Demo allows ${PER_TOKEN_LIMIT} calls per hour.`,
+      },
+      id: null,
+    });
+    return;
+  }
+
   next();
 }
 

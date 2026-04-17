@@ -52,16 +52,18 @@ function createMockResponse(): MockResponse {
 function createRequest(
   overrides: Partial<Request> = {},
 ): Request {
-  return {
+  const base = {
     protocol: "https",
-    headers: {},
+    headers: {} as Record<string, string | undefined>,
     query: {},
     body: {},
-    header(name: string) {
-      return this.headers[name.toLowerCase()] as string | undefined;
+    header(name: string): string | undefined {
+      return (base.headers as Record<string, string | undefined>)[
+        name.toLowerCase()
+      ];
     },
-    ...overrides,
-  } as unknown as Request;
+  };
+  return { ...base, ...overrides } as unknown as Request;
 }
 
 describe("oauth handlers", () => {

@@ -23,6 +23,8 @@ import {
   verifyAccessToken,
 } from "./src/oauth.js";
 
+const DEMO_MODE = Boolean(process.env.DEMO_MODE);
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const UI_RESOURCE_URI = "ui://llm-council/mcp-app.html";
@@ -81,7 +83,8 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
       _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
     },
     async ({ question, model }) => {
-      const result = await claudeProvider.ask(question, { model });
+      const effectiveModel = DEMO_MODE ? "sonnet" : model;
+      const result = await claudeProvider.ask(question, { model: effectiveModel });
 
       const errorResult = (error: ProviderError) => ({
         content: [
@@ -140,7 +143,8 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
       _meta: { ui: { resourceUri: UI_RESOURCE_URI } },
     },
     async ({ question, model }) => {
-      const result = await geminiProvider.ask(question, { model });
+      const effectiveModel = DEMO_MODE ? "flash" : model;
+      const result = await geminiProvider.ask(question, { model: effectiveModel });
 
       const errorResult = (error: ProviderError) => ({
         content: [
@@ -356,6 +360,39 @@ if (oauthEnabled) {
   );
 }
 
+function normalizeMcpAcceptHeader(req: express.Request): void {
+  const accept = req.headers.accept;
+  let normalizedAccept: string | undefined;
+
+  if (!accept) {
+    normalizedAccept = "application/json, text/event-stream";
+  } else if (
+    (accept.includes("application/json") || accept.includes("*/*")) &&
+    !accept.includes("text/event-stream")
+  ) {
+    normalizedAccept = "application/json, text/event-stream";
+  }
+
+  if (!normalizedAccept) {
+    return;
+  }
+
+  req.headers.accept = normalizedAccept;
+
+  const rawHeaders = req.rawHeaders;
+  let patched = false;
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    if (rawHeaders[i].toLowerCase() === "accept") {
+      rawHeaders[i + 1] = normalizedAccept;
+      patched = true;
+      break;
+    }
+  }
+  if (!patched) {
+    rawHeaders.push("Accept", normalizedAccept);
+  }
+}
+
 app.post(
   "/mcp",
   (req, res, next) => {
@@ -363,6 +400,10 @@ app.post(
     next();
   },
   async (req, res) => {
+    // ChatGPT's OAuth callback path can send an MCP initialize POST that only
+    // advertises application/json. Relax that header to keep the SDK happy.
+    normalizeMcpAcceptHeader(req);
+
     const server = createMcpServer();
     try {
       const transport = new StreamableHTTPServerTransport({
