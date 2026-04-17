@@ -184,25 +184,25 @@ Workflow: first answer the user's question yourself concisely in the chat, then 
     "start_council",
     {
       title: "Start LLM Council (ChatGPT 主催の合議)",
-      description: `Start a ChatGPT-hosted LLM council on a user question. Call this tool whenever the user asks for a "council", says "合議して" / "Claude と Gemini で議論して" / "3 モデルで話し合って", or otherwise asks for multiple LLMs to weigh in on a decision.
+      description: `Start a 1-call pseudo-council on a user question. Call this tool whenever the user asks for a "council", says "合議して" / "Claude と Gemini で議論して" / "3 モデルで話し合って", or otherwise asks for multiple LLMs to weigh in on a decision.
 
-The tool runs a 2-round synthesizer council:
-- Round 1: your own initial answer (passed in as chatgpt_initial_answer) is recorded as-is, no new API call
-- Round 2: Claude (sonnet) and Gemini (flash) are called in parallel with an independent-evaluation prompt that asks for a stance (agree/extend/partial/disagree) and a short reason
+The tool runs 2 rounds on the server in a single tool call:
+- Round 1: your own initial answer (passed in as chatgpt_initial_answer) is recorded as-is. Claude (sonnet) and Gemini (flash) are called in parallel with the same raw question — each model answers independently without seeing your answer or each other's. This yields 3 independent initial answers.
+- Round 2: Claude and Gemini are called again in parallel with a structured-evaluation prompt that shows all 3 Round 1 answers. Each returns a stance (agree/extend/partial/disagree) and a short reason based on whether the 3 Round 1 answers are consistent. If Round 1 failed for a provider, its Round 2 is skipped (error.code = "round1_failed").
 
-The server then computes a consensus (unanimous_agree / mixed / unanimous_disagree) and returns a revision_prompt as the tool response's \`content\` field. You (ChatGPT) should read that revision_prompt and write your own Round 3 answer as your next chat message — the council never writes a final answer for you, you do.
+The server then computes a consensus (unanimous_agree / mixed / unanimous_disagree) and returns a revision_prompt as the tool response's \`content\` field. The revision_prompt quotes all 3 Round 1 answers and the Round 2 stances, then instructs you (ChatGPT) to write your own Round 3 answer as your next chat message — the council never writes a final answer for you, you do.
 
 Parameters:
 - question: the user's question verbatim
-- chatgpt_initial_answer: your own first-pass answer to the question (required, non-empty). The council evaluates this answer independently.
+- chatgpt_initial_answer: your own first-pass answer to the question (required, non-empty). This is recorded as your Round 1 entry and compared against Claude and Gemini's independent Round 1 answers.
 
-Workflow: first answer the user's question yourself concisely in the chat, then immediately invoke start_council with that same answer as chatgpt_initial_answer. When the tool returns, read the revision_prompt in the content field and write your Round 3 revised answer as your next chat message. The iframe will display the full council transcript underneath.`,
+Workflow: first answer the user's question yourself concisely in the chat, then immediately invoke start_council with that same answer as chatgpt_initial_answer. When the tool returns, read the revision_prompt in the content field and write your Round 3 revised answer as your next chat message. The iframe will display the full 3-speaker Round 1 + Round 2 stance transcript underneath.`,
       inputSchema: {
         question: z.string().describe("The user's question verbatim"),
         chatgpt_initial_answer: z
           .string()
           .describe(
-            "Your own initial answer to the question. Required, non-empty. The council evaluates this answer.",
+            "Your own initial answer to the question. Required, non-empty. Recorded as your Round 1 entry, compared against Claude / Gemini independent Round 1 answers.",
           ),
       },
       _meta: { ui: { resourceUri: UI_RESOURCE_URI } },

@@ -1,33 +1,36 @@
 /**
- * Council Orchestrator — Article 4 の中核: ChatGPT 主催の合議フロー。
+ * Council Orchestrator — Article 4 の中核: 擬似合議フロー (server-side 2-round)。
  *
- * 現在の実装範囲 (spec-003 task 1-4 完了時点):
- *   - Round 1: ChatGPT の初案を API 呼び出しなしで 1 speaker として記録
- *   - Round 2: Claude / Gemini に独立評価プロンプトで並列問い合わせ (`Promise.allSettled`)
+ * 設計の核心:
+ *   - Round 1 = 3 者 (ChatGPT / Claude / Gemini) が互いを見ずに独立回答する
+ *   - Round 2 = Claude / Gemini は Round 1 の 3 者全員の回答を見て、自分の Round 1 と
+ *     他 2 者の回答を比較しながら stance (agree/extend/partial/disagree) を表明する
+ *   - Round 3 (改訂案) はサーバーで生成せず、ChatGPT 本人が tool 応答の `content`
+ *     (= `revision_prompt`) を読んで次の発話として書く
+ *
+ * なぜ "擬似" か: ChatGPT の MCP App は通常 tool 呼び出しを 1 回しかループしない
+ * ため、真のマルチターン discussion (表明 → 反応 → 再表明 → …) は不可能。代わりに
+ * 1 tool call 内で Round 1 (独立) → Round 2 (相互参照 stance) を server 側で閉じ込め、
+ * anchoring が相互にかかることで偏りを打ち消す設計にしている。
+ *
+ * 挙動:
+ *   - Round 1: `Promise.allSettled` で Claude / Gemini に質問本体を並列投げる
+ *     (ChatGPT の Round 1 回答は入力の `chatgpt_initial_answer` をそのまま使う)
+ *   - Round 2: Round 1 が成功した speaker のみプロンプト生成。Round 1 が失敗した
+ *     speaker は Round 2 を skip して `error.code = round1_failed` を記録
  *   - `{stance, reason}` の JSON 構造化出力を `parseStanceResponse()` で parse し、
  *     コードフェンス剥がし + 4 値 stance / 非空 reason の runtime 検証を通す
- *   - 型: `Stance` / `Consensus` / `Speaker.stance?` / `CouncilTranscript.consensus`
- *     / `CouncilTranscript.revision_prompt`
- *   - `computeConsensus(speakers)` で stance 集計 (2 人以上の成功を unanimous 判定の
- *     必須条件にする)
- *   - `buildRevisionPrompt(transcript, consensus)` で consensus 3 分岐に応じた
- *     Round 3 プロンプト (自然言語日本語) を生成
- *   - parse 失敗時: `content` は原文のまま残し `error.code = invalid_response`、
- *     stance は undefined のため consensus 計算から除外される
- *   - `total_latency_ms` は Round 1-2 全体の経過時間
- *
- * 次タスク以降で段階的に拡張される:
- *   - spec-003 task 5: `start_council` tool を server.ts に登録
- *     (`CouncilTranscript` を `structuredContent` に、`revision_prompt` を `content` に)
- *
- * Round 3 (改訂案) はサーバーで生成しない — ChatGPT 本人が tool 応答の `content` を
- * 読んで次の発話として改訂案を書く。これが "案 B" の核心で、`runCouncil()` には
- * 最終回答を組み立てるロジックは入らない (`final_answer` フィールドは存在しない)。
+ *   - `computeConsensus(speakers)` は Round 2 の stance を集計 (2 人以上の成功を
+ *     unanimous 判定の必須条件にする)
+ *   - `buildRevisionPrompt(transcript, consensus)` は consensus 3 分岐に応じた
+ *     Round 3 プロンプト (自然言語日本語) を Round 1 の 3 者引用 + Round 2 の
+ *     stance 引用で組み立てる
+ *   - `total_latency_ms` は Round 1-2 全体の経過時間 (Round 1 と Round 2 が直列)
  */
 
 import type {
   ProviderClient,
-  ProviderError,
+  ProviderErrorCode,
   ProviderResponse,
   Result,
 } from "./providers/types.js";
@@ -35,27 +38,43 @@ import type {
 export type SpeakerName = "chatgpt" | "claude" | "gemini";
 
 /**
- * Round 2 の各 speaker が初案に対して表明する 4 値 stance。
- * - agree: 初案に同意
- * - extend: 初案に同意しつつ補足視点を追加
- * - partial: 初案の一部に同意、一部に不同意
- * - disagree: 初案に不同意
+ * Council 層固有のエラーコード。
+ * - provider 層の `ProviderErrorCode` を包含する (provider 失敗は council でもそのまま記録する)
+ * - `round1_failed`: Round 1 で失敗した speaker の Round 2 を skip したことを表す
+ *   council 固有コード (provider 層には存在しない)。types.ts を汚さないためここに定義する
+ */
+export type CouncilErrorCode = ProviderErrorCode | "round1_failed";
+
+export type CouncilSpeakerError = {
+  code: CouncilErrorCode;
+  message: string;
+  /** provider 層から引き継がれる場合のみ入る (rate_limited の reset 時刻など) */
+  resetAt?: string;
+};
+
+/**
+ * Round 2 の各 speaker が 3 者の Round 1 に対して表明する 4 値 stance。
+ * - agree: 3 者の Round 1 が概ね整合している。大きな修正は不要
+ * - extend: 3 者の Round 1 は概ね整合しているが、補足視点を追加したい
+ * - partial: 3 者の Round 1 の一部は一致、一部に異論あり
+ * - disagree: 3 者の Round 1 に根本的に同意しない
  *
- * "批判" 用語を避けているのは spec-003 technical notes に書いた通り、
- * LLM-as-critic の 3 失敗モード (sycophancy flip / confabulated disagreement /
- * confirmation signal の喪失) を避けるため。同意も正当な出力として扱う。
+ * "批判" 用語を避けているのは、LLM-as-critic の 3 失敗モード (sycophancy flip /
+ * confabulated disagreement / confirmation signal の喪失) を避けるため。
+ * 同意も正当な出力として扱う。
  */
 export type Stance = "agree" | "extend" | "partial" | "disagree";
 
 export type Speaker = {
   name: SpeakerName;
-  /** 発言本文。成功したときのみ入る */
+  /** 発言本文。Round 1 は自由回答文、Round 2 は stance の reason を入れる */
   content?: string;
-  /** Round 2 の独立評価プロンプトから parse した stance。chatgpt (Round 1) と
-   * parse 失敗 / provider エラー時は undefined */
+  /** Round 2 で parse した stance。Round 1 speaker と parse 失敗 / provider エラー
+   * / Round 1 failed による skip 時は undefined */
   stance?: Stance;
-  /** provider が失敗したとき、または rejected Promise を settledToSpeaker が拾ったとき */
-  error?: ProviderError;
+  /** provider が失敗したとき、rejected Promise を拾ったとき、または Round 2 が
+   * Round 1 失敗により skip されたとき (`error.code = "round1_failed"`) */
+  error?: CouncilSpeakerError;
 };
 
 export type RoundLabel = "round_1" | "round_2";
@@ -102,7 +121,7 @@ export type CouncilErrorSummary = {
   message: string;
   providers: Array<{
     name: Exclude<SpeakerName, "chatgpt">;
-    error: ProviderError;
+    error: CouncilSpeakerError;
   }>;
 };
 
@@ -180,11 +199,25 @@ function formatSpeakerQuote(
  * Round 2 の引用対象は `stance !== undefined` かつ `content !== undefined` の speaker
  * のみ (parse 失敗や provider エラーで stance が無い speaker は除外)。
  */
+function formatRound1Quote(speaker: Speaker): string {
+  const name = SPEAKER_LABEL[speaker.name];
+  if (speaker.error || !speaker.content) {
+    return `【${name} の Round 1】(回答取得失敗)`;
+  }
+  return `【${name} の Round 1】\n${speaker.content}`;
+}
+
 export function buildRevisionPrompt(
   transcript: CouncilTranscript,
   consensus: Consensus,
 ): string {
+  const round1 = transcript.rounds.find((r) => r.label === "round_1");
   const round2 = transcript.rounds.find((r) => r.label === "round_2");
+
+  const round1Quotes = (round1?.speakers ?? [])
+    .map(formatRound1Quote)
+    .join("\n\n");
+
   const availableSpeakers = (round2?.speakers ?? []).filter(
     (s): s is Speaker & { stance: Stance; content: string } =>
       s.stance !== undefined && s.content !== undefined,
@@ -193,23 +226,21 @@ export function buildRevisionPrompt(
     ? availableSpeakers.map(formatSpeakerQuote).join("\n\n")
     : "(Round 2 の有効な発言はありませんでした)";
 
-  const round1Block = `【ChatGPT の初案】\n${transcript.chatgpt_initial_answer}`;
-
   const headerByConsensus: Record<Consensus, string> = {
     unanimous_agree: [
-      "【合議結果: 全員が初案に同意】",
-      "他 2 モデルも初案の結論に同意しました。改訂は原則不要です。",
+      "【合議結果: Round 1 の 3 者回答は整合しています】",
+      "Round 2 で Claude / Gemini とも 3 者の Round 1 が整合していると判断しました。改訂は原則不要です。",
       "ただし Round 2 で補足視点 (extend) が出ている場合は、1〜2 行だけあなたの回答に追記してください。",
       "補足が無ければ「合議の結果、改訂は不要と判断しました」と一言添えて初案をそのまま提示してください。",
     ].join("\n"),
     mixed: [
-      "【合議結果: 意見が割れた】",
+      "【合議結果: 3 者の Round 1 に不整合がある】",
       "Round 2 で Claude / Gemini の見解が分かれました。以下の論点を踏まえて、初案を改訂してください。",
       "同意された部分は維持し、異論・補足は本文に織り込み、最終的な結論を明確に示してください。",
     ].join("\n"),
     unanimous_disagree: [
-      "【合議結果: 全員が初案に不同意】",
-      "他 2 モデルとも初案に重大な問題を指摘しています。根本から書き直してください。",
+      "【合議結果: 3 者の Round 1 が大きく食い違っている】",
+      "Round 2 で Claude / Gemini とも 3 者の Round 1 の整合性に重大な問題を指摘しています。根本から書き直してください。",
       "Round 2 で示された論点を踏まえ、初案の前提や結論を見直した上で、あらためて回答を組み立ててください。",
     ].join("\n"),
   };
@@ -223,7 +254,8 @@ export function buildRevisionPrompt(
   return [
     headerByConsensus[consensus],
     "",
-    round1Block,
+    "【Round 1: 3 者の独立回答】",
+    round1Quotes,
     "",
     "【Round 2 の独立評価】",
     round2QuotesBlock,
@@ -257,23 +289,59 @@ export function summarizeCouncilFailure(
   };
 }
 
-function buildRound2Prompt(input: CouncilInput): string {
+/**
+ * Round 2 のプロンプトを speaker 別に生成する。
+ *
+ * 1 tool call 内 2 ラウンド設計の肝: self speaker には "あなた自身の Round 1" を、
+ * 他 2 者には "比較対象" を見せる。anchoring が相互にかかる構造。
+ *
+ * self の Round 1 が失敗しているケースはこの関数の呼び出し元で skip しているので、
+ * ここでは self.content が存在する前提。ただし型上 undefined を扱えるようにして、
+ * 呼び出し側のバグがあっても落ちないようにしている。
+ */
+function buildRound2Prompt(
+  input: CouncilInput,
+  selfName: Exclude<SpeakerName, "chatgpt">,
+  round1Speakers: Speaker[],
+): string {
+  const selfLabel = SPEAKER_LABEL[selfName];
+  const selfR1 = round1Speakers.find((s) => s.name === selfName);
+  const othersR1 = round1Speakers.filter(
+    (s): s is Speaker & { content: string } =>
+      s.name !== selfName && s.content !== undefined,
+  );
+
+  const selfBlock = selfR1?.content
+    ? `【あなた (${selfLabel}) の Round 1 回答】\n${selfR1.content}`
+    : `【あなた (${selfLabel}) の Round 1 回答】\n(回答が取得できませんでした)`;
+
+  const otherBlocks =
+    othersR1.length > 0
+      ? othersR1
+          .map(
+            (s) =>
+              `【${SPEAKER_LABEL[s.name]} の Round 1 回答】\n${s.content}`,
+          )
+          .join("\n\n")
+      : "(他のモデルの Round 1 回答はありません)";
+
   return [
-    "あなたは ChatGPT 主催の合議に参加する独立評価者です。",
-    "ChatGPT が以下の質問に対する初案を提示しました。あなたはこの初案を第三者の立場で独立評価してください。",
+    `あなたは合議に参加する独立評価者 "${selfLabel}" です。`,
+    "同じ質問に対して、3 者 (ChatGPT / Claude / Gemini) が互いを見ずに独立回答を出しました。",
+    "あなた自身の Round 1 回答と他 2 者の回答を比較して、3 者の合議としての整合性に対する立場 (stance) を表明してください。",
     "",
     "【重要】これは『批判』を求めるプロンプトではありません。同意も正当な出力です。",
-    "初案に同意する箇所があれば素直に同意を表明してください。欠点を無理に捻り出す必要はありません。",
-    "逆に重要な論点が抜けていたり誤りがあれば、端的に指摘してください。",
+    "他 2 者の回答があなたと整合していれば素直に同意してください。欠点を無理に捻り出す必要はありません。",
+    "逆に他 2 者の回答があなたと重要な論点でずれていれば端的に指摘してください。",
     "",
-    "次の 4 値のいずれかで初案に対する立場 (stance) を示してください:",
-    "- agree: 初案に同意。大きな修正は不要",
-    "- extend: 初案に同意した上で補足視点を追加",
-    "- partial: 初案の一部に同意、一部に異論あり",
-    "- disagree: 初案に根本的に同意しない",
+    "次の 4 値のいずれかで、3 者の Round 1 を踏まえたあなたの立場を示してください:",
+    "- agree: 3 者の Round 1 が概ね整合している。大きな修正は不要",
+    "- extend: 3 者の Round 1 は概ね整合しているが、補足視点を追加したい",
+    "- partial: 3 者の Round 1 の一部は一致、一部に異論あり",
+    "- disagree: 3 者の Round 1 に根本的に同意しない",
     "",
     "回答は以下の JSON 形式で返してください。他のテキストや markdown コードフェンスは不要です。",
-    '{"stance": "agree", "reason": "初案の論理構成は妥当で補足する論点は見当たりません。"}',
+    '{"stance": "agree", "reason": "3 者の論理構成は妥当で大きなズレは見当たりません。"}',
     "",
     "- stance は必ず agree / extend / partial / disagree のいずれかにしてください",
     "- reason は 200 字以内の日本語で、あなたの立場の根拠を簡潔に示してください",
@@ -281,8 +349,9 @@ function buildRound2Prompt(input: CouncilInput): string {
     "------",
     `質問: ${input.question}`,
     "",
-    "ChatGPT の初案:",
-    input.chatgpt_initial_answer,
+    selfBlock,
+    "",
+    otherBlocks,
   ].join("\n");
 }
 
@@ -394,29 +463,73 @@ function settledToSpeaker(
   return { name, content: result.data.text };
 }
 
+/**
+ * 1 speaker 分の Round 2 を実行する。
+ *
+ * Round 1 で失敗した speaker は API を呼ばず `error.code = round1_failed` で skip する。
+ * API 呼び出しが rejected / result.ok === false の場合は error を記録。
+ * 成功した場合は `applyStanceParsing` で structured output をパース。
+ */
+async function runRound2ForSpeaker(
+  name: Exclude<SpeakerName, "chatgpt">,
+  provider: ProviderClient,
+  input: CouncilInput,
+  round1Speakers: Speaker[],
+): Promise<Speaker> {
+  const selfR1 = round1Speakers.find((s) => s.name === name);
+  if (!selfR1 || selfR1.error !== undefined || selfR1.content === undefined) {
+    return {
+      name,
+      error: {
+        code: "round1_failed",
+        message: `Round 2 skipped because Round 1 failed for ${SPEAKER_LABEL[name]}.`,
+      },
+    };
+  }
+  const prompt = buildRound2Prompt(input, name, round1Speakers);
+  try {
+    const result = await provider.ask(prompt);
+    if (!result.ok) return { name, error: result.error };
+    return applyStanceParsing({ name, content: result.data.text });
+  } catch (err) {
+    return {
+      name,
+      error: {
+        code: "network_error",
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+}
+
 export async function runCouncil(
   input: CouncilInput,
   providers: CouncilProviders,
 ): Promise<CouncilTranscript> {
   const start = Date.now();
 
+  // Round 1: Claude / Gemini を同じ質問で並列呼び出し (独立回答)
+  const round1Settled = await Promise.allSettled([
+    providers.claude.ask(input.question),
+    providers.gemini.ask(input.question),
+  ]);
   const round1: Round = {
     label: "round_1",
-    speakers: [{ name: "chatgpt", content: input.chatgpt_initial_answer }],
+    speakers: [
+      { name: "chatgpt", content: input.chatgpt_initial_answer },
+      settledToSpeaker("claude", round1Settled[0]),
+      settledToSpeaker("gemini", round1Settled[1]),
+    ],
   };
 
-  const round2Prompt = buildRound2Prompt(input);
-  const settled = await Promise.allSettled([
-    providers.claude.ask(round2Prompt),
-    providers.gemini.ask(round2Prompt),
+  // Round 2: Round 1 が成功した speaker のみ独立評価を呼ぶ
+  const [claudeR2, geminiR2] = await Promise.all([
+    runRound2ForSpeaker("claude", providers.claude, input, round1.speakers),
+    runRound2ForSpeaker("gemini", providers.gemini, input, round1.speakers),
   ]);
-
   const round2: Round = {
     label: "round_2",
-    speakers: [
-      settledToSpeaker("claude", settled[0]),
-      settledToSpeaker("gemini", settled[1]),
-    ].map(applyStanceParsing),
+    speakers: [claudeR2, geminiR2],
   };
 
   const consensus = computeConsensus(round2.speakers);
